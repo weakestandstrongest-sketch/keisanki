@@ -104,17 +104,20 @@ window.MS = window.MS || {};
         const i = Math.floor(R() * this.nodes.length), j = Math.floor(R() * this.nodes.length);
         if (i !== j) this.edges.push([i, j, 1]);
       }
-      // 光の糸 (噴水のように立ちのぼり、弧を描いて落ちる)
+      // 光の糸 (板から上へまっすぐ立ちのぼる)
       this.fibers = [];
-      const fountains = [[-0.3, -0.25], [0.28, -0.05]];
-      for (let i = 0; i < 150; i++) {
-        const [fx, fz] = fountains[i % 2];
-        const a = R() * TAU, rr = R() * 0.22;
-        const p0 = [fx + Math.cos(a) * rr, this.meshY, fz + Math.sin(a) * rr];
-        const out = R() * TAU, len = 0.25 + R() * 0.75;
-        const p2 = [p0[0] + Math.cos(out) * len, this.meshY + (R() - 0.3) * 0.2, p0[2] + Math.sin(out) * len];
-        const h = 0.7 + R() * 1.0;
-        this.fibers.push({ p0, p2, h, hue: R() < 0.62 ? 285 + R() * 25 : 185 + R() * 15, ph: R(), sp: 0.12 + R() * 0.25, sw: R() * TAU });
+      for (let i = 0; i < 170; i++) {
+        // 中央ほど密に
+        const a = R() * TAU, rr = Math.pow(R(), 1.6) * 0.82;
+        const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+        this.fibers.push({
+          x, z,
+          h: 0.9 + R() * 1.5 * (1 - rr * 0.6),           // 高さ
+          lean: [x * 0.12 + (R() - 0.5) * 0.08, z * 0.12 + (R() - 0.5) * 0.08], // わずかに外へ広がる
+          wav: 0.015 + R() * 0.03, freq: 2 + R() * 3,
+          hue: R() < 0.62 ? 280 + R() * 30 : 185 + R() * 15,
+          ph: R(), sp: 0.18 + R() * 0.3, sw: R() * TAU,
+        });
       }
       this.sparks = [];
       for (let i = 0; i < 160; i++) this.sparks.push([(R() * 2 - 1) * 1.3, 0.6 + R() * 2.2, (R() * 2 - 1) * 1.3, R()]);
@@ -242,7 +245,7 @@ window.MS = window.MS || {};
       this.pitch += (this.pitchT - this.pitch) * 0.12;
       this.cy = Math.cos(this.yaw); this.sy = Math.sin(this.yaw);
       this.cp = Math.cos(this.pitch); this.sp = Math.sin(this.pitch);
-      for (const s of this.sparks) { s[1] += dt * (0.05 + s[3] * 0.08); if (s[1] > 2.9) s[1] = 0.6; }
+      for (const s of this.sparks) { s[1] += dt * (0.12 + s[3] * 0.2); if (s[1] > 2.9) s[1] = 0.6; }
       for (const c of this.crystals) if (c.pop) c.pop = Math.max(0, c.pop - dt * 2);
     }
 
@@ -477,29 +480,46 @@ window.MS = window.MS || {};
       const g = this.ctx;
       g.save();
       g.globalCompositeOperation = 'lighter';
-      g.lineWidth = 0.75;
-      const SEG = 18;
+      const SEG = 16;
+      const y0 = this.meshY;
       for (const f of this.fibers) {
-        const sway = Math.sin(this.t * 0.7 + f.sw) * 0.04;
-        const p0 = f.p0, p2 = f.p2;
-        const c1 = [(p0[0] * 0.7 + p2[0] * 0.3) + sway, p0[1] + f.h * 1.35, (p0[2] * 0.7 + p2[2] * 0.3) - sway];
         const pts = [];
         for (let i = 0; i <= SEG; i++) {
-          const u = i / SEG, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), cc = u * u;
-          pts.push(this.proj(a * p0[0] + b * c1[0] + cc * p2[0], a * p0[1] + b * c1[1] + cc * p2[1], a * p0[2] + b * c1[2] + cc * p2[2]));
+          const u = i / SEG;
+          const w = Math.sin(u * f.freq * Math.PI + this.t * 1.2 + f.sw) * f.wav * u;
+          const x = f.x + f.lean[0] * u * u + w;
+          const z = f.z + f.lean[1] * u * u + w * 0.6;
+          pts.push(this.proj(x, y0 + u * f.h, z));
         }
-        g.strokeStyle = `hsla(${f.hue},100%,68%,0.17)`;
-        g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y))); g.stroke();
-        // 糸を流れる光
+        // 下は明るく、上へ行くほど消えていく
+        g.lineWidth = 0.8;
+        for (let i = 0; i < SEG; i++) {
+          const u = i / SEG;
+          const a = 0.3 * (1 - u) * (1 - u) + 0.03;
+          g.strokeStyle = `hsla(${f.hue},100%,72%,${a})`;
+          g.beginPath(); g.moveTo(pts[i].x, pts[i].y); g.lineTo(pts[i + 1].x, pts[i + 1].y); g.stroke();
+        }
+        // 下から上へ昇っていく光
         const head = ((this.t * f.sp + f.ph) % 1) * SEG;
         const h0 = Math.floor(head);
-        if (h0 < SEG - 1) {
-          g.strokeStyle = `hsla(${f.hue},100%,84%,0.5)`;
-          g.lineWidth = 1.2;
-          g.beginPath(); g.moveTo(pts[h0].x, pts[h0].y); g.lineTo(pts[h0 + 1].x, pts[h0 + 1].y); g.lineTo(pts[Math.min(SEG, h0 + 2)].x, pts[Math.min(SEG, h0 + 2)].y); g.stroke();
-          g.lineWidth = 0.75;
+        if (h0 < SEG) {
+          const fade = 1 - h0 / SEG;
+          g.strokeStyle = `hsla(${f.hue},100%,88%,${0.75 * fade})`;
+          g.lineWidth = 1.4;
+          g.beginPath();
+          g.moveTo(pts[Math.max(0, h0 - 1)].x, pts[Math.max(0, h0 - 1)].y);
+          g.lineTo(pts[h0].x, pts[h0].y);
+          g.lineTo(pts[h0 + 1].x, pts[h0 + 1].y);
+          g.stroke();
         }
       }
+      // 根元の光
+      const c = this.proj(0, y0, 0);
+      const rg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, this.k * 0.8);
+      rg.addColorStop(0, 'rgba(230,190,255,0.25)');
+      rg.addColorStop(1, 'rgba(160,110,255,0)');
+      g.fillStyle = rg;
+      g.beginPath(); g.ellipse(c.x, c.y, this.k * 0.8, this.k * 0.8 * this.sp, 0, 0, TAU); g.fill();
       g.restore();
     }
 
@@ -508,7 +528,7 @@ window.MS = window.MS || {};
       g.save();
       g.globalCompositeOperation = 'lighter';
       for (const [x, y, z, a] of this.sparks) {
-        const p = this.proj(x * (1 - (y - 0.6) * 0.15), y, z * (1 - (y - 0.6) * 0.15));
+        const p = this.proj(x * 0.8, y, z * 0.8);
         const fade = Math.min(1, (2.9 - y) * 1.5) * (0.3 + 0.7 * a);
         g.fillStyle = a < 0.4 ? `rgba(130,240,255,${fade * 0.8})` : `rgba(220,190,255,${fade * 0.7})`;
         g.fillRect(p.x, p.y, a < 0.15 ? 2 : 1.3, a < 0.15 ? 2 : 1.3);
