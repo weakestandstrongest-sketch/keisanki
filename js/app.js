@@ -436,6 +436,18 @@
     $('btnPuni').addEventListener('click', () => { if (mq.matches) setOpen(false); });
   })();
 
+  /* ---------- ゲーム: 2ⁿ DROP ---------- */
+  const game = new MS.Game($('game'), {
+    toast,
+    onClose: () => { world.paused = false; world.resize(); },
+  });
+  $('btnGame').addEventListener('click', () => {
+    if (holo.active) setHolo(false);
+    world.paused = true; // 裏のぷに空間は止めておく
+    game.show();
+    $('game').focus();
+  });
+
   /* ---------- 履歴の一覧 (🕘) ---------- */
   (function historyPanel() {
     const panel = $('histPanel'), list = $('histList'), btn = $('btnHistory');
@@ -509,5 +521,5 @@
     }
   } catch (e) { /* storage 不可 */ }
 
-  MS.app = { world, calc, inspector, spawn, holo, setHolo };
+  MS.app = { world, calc, inspector, spawn, holo, setHolo, game };
 })(window.MS);

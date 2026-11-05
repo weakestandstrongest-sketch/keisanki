@@ -6,7 +6,7 @@
   <title>MATHSCAPE</title>
   <meta name="description" content="数字・数式・条件・可能性を自由に操作できる、自分だけの計算空間。">
   <meta name="theme-color" content="#06051a">
-  <link rel="stylesheet" href="style.css?v=202611050444">
+  <link rel="stylesheet" href="style.css?v=202611050452">
 </head>
 <body>
   <div class="bg" aria-hidden="true">
@@ -20,6 +20,7 @@
       <span class="tag">A new way to interact with numbers.</span>
     </div>
     <div class="tools">
+      <button type="button" id="btnGame" class="tbtn game-btn" title="2ⁿ DROP で遊ぶ">▶ 2ⁿ DROP</button>
       <button type="button" id="btnHolo" class="tbtn holo-btn" aria-pressed="false" title="ホログラム表示">◇ ホログラム</button>
       <button type="button" id="btnGravity" class="tbtn" aria-pressed="false" title="重力のオン/オフ">⟡ 無重力</button>
       <button type="button" id="btnSpawn" class="tbtn" title="ぷにを出す">＋ ぷに</button>
@@ -82,6 +83,34 @@
 
   <aside class="panel inspector" id="inspector" hidden aria-label="数字インスペクタ"></aside>
 
+  <section class="game" id="game" hidden aria-label="2ⁿ DROP" tabindex="-1">
+    <div class="g-top">
+      <div class="g-title"><b>2ⁿ DROP</b><small>同じ数をくっつけて、大きな 2 の累乗へ</small></div>
+      <button type="button" class="g-close" id="gClose" aria-label="ゲームを閉じる">✕</button>
+    </div>
+    <div class="g-hud">
+      <div><span>SCORE</span><b id="gScore">0</b></div>
+      <div><span>BEST</span><b id="gBest">0</b></div>
+      <div class="g-next"><span>NEXT</span><i id="gNext">2</i></div>
+      <button type="button" class="btn" id="gRestart">↻ 最初から</button>
+    </div>
+    <div class="g-box">
+      <canvas id="gameCanvas"></canvas>
+      <div class="g-over" id="gOver" hidden>
+        <div class="g-over-card panel">
+          <h2>GAME OVER</h2>
+          <dl>
+            <dt>スコア</dt><dd id="gFinal">0</dd>
+            <dt>いちばん大きい数</dt><dd id="gMax">2</dd>
+            <dt>ベスト</dt><dd id="gFinalBest">0</dd>
+          </dl>
+          <button type="button" class="btn glow" id="gRetry">もう一度</button>
+        </div>
+      </div>
+    </div>
+    <p class="g-hint">左右に動かして、離すと落ちる · 同じ数がふれると 2 倍に合体 · 点線より上に積み上がるとおしまい</p>
+  </section>
+
   <div class="help" id="help" hidden>
     <div class="help-card panel">
       <h2>MATHSCAPE の遊び方</h2>
@@ -99,12 +128,13 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="ghost" id="ghost" hidden></div>
 
-  <script src="js/format.js?v=202611050444"></script>
-  <script src="js/numlab.js?v=202611050444"></script>
-  <script src="js/calc.js?v=202611050444"></script>
-  <script src="js/blobs.js?v=202611050444"></script>
-  <script src="js/inspector.js?v=202611050444"></script>
-  <script src="js/holo.js?v=202611050444"></script>
-  <script src="js/app.js?v=202611050444"></script>
+  <script src="js/format.js?v=202611050452"></script>
+  <script src="js/numlab.js?v=202611050452"></script>
+  <script src="js/calc.js?v=202611050452"></script>
+  <script src="js/blobs.js?v=202611050452"></script>
+  <script src="js/inspector.js?v=202611050452"></script>
+  <script src="js/holo.js?v=202611050452"></script>
+  <script src="js/game.js?v=202611050452"></script>
+  <script src="js/app.js?v=202611050452"></script>
 </body>
 </html>

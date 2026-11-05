@@ -31,8 +31,8 @@ window.MS = window.MS || {};
       this.id = ++seq;
       this.value = MS.clean(value);
       this.label = MS.short(this.value);
-      this.r = radiusFor(this.value) * (opt.k || 1);
-      this.hue = hueFor(this.value);
+      this.r = opt.r || radiusFor(this.value) * (opt.k || 1);
+      this.hue = opt.hue != null ? opt.hue : hueFor(this.value);
       this.scale = opt.scale != null ? opt.scale : 0.25;
       this.sv = 0;               // スケールの速度 (ぷるんとさせる)
       this.targetScale = 1;
@@ -76,7 +76,13 @@ window.MS = window.MS || {};
       window.addEventListener('resize', () => this.resize());
       this._last = performance.now();
       this._acc = 0;
+      this.paused = false;
+      this.maxBlobs = 40;
+      this.radiusFn = null;   // ゲームなどで大きさ・色を決める関数
+      this.hueFn = null;
+      this.autoMerge = false; // 同じ数どうしが触れたら合体 (ゲーム用)
       const loop = (t) => {
+        if (this.paused) { this._last = t; requestAnimationFrame(loop); return; }
         const dt = Math.min(0.05, (t - this._last) / 1000);
         this._last = t;
         this._acc += dt;
@@ -122,13 +128,17 @@ window.MS = window.MS || {};
     add(x, y, value, opt) {
       const v = MS.clean(value);
       if (!MS.isValid(v)) return null;
-      x = Math.max(40, Math.min(this.w - 40, x));
-      y = Math.max(40, Math.min(this.h - 40, y));
+      opt = Object.assign({}, opt);
+      if (this.radiusFn && !opt.r) opt.r = this.radiusFn(v);
+      if (this.hueFn && opt.hue == null) opt.hue = this.hueFn(v);
+      const m = opt.r ? opt.r + 3 : 40;
+      x = Math.max(m, Math.min(this.w - m, x));
+      y = Math.max(opt.r ? -opt.r : 40, Math.min(this.h - m, y));
       // 小さな画面ではぷにも小さめに
       const k = Math.max(0.62, Math.min(1, Math.min(this.w, this.h * 1.4) / 760));
       const b = new Blob(x, y, v, Object.assign({ k }, opt));
       this.blobs.push(b);
-      while (this.blobs.filter(o => !o.dying).length > 40) {
+      while (this.blobs.filter(o => !o.dying).length > this.maxBlobs) {
         const old = this.blobs.find(o => !o.dying && o !== b && (!this.grab || this.grab.blob !== o));
         if (!old) break;
         this.remove(old);
@@ -159,6 +169,37 @@ window.MS = window.MS || {};
         const a = Math.random() * TAU, s = 60 + Math.random() * 220;
         this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, r: Math.random() * 2 + 1, hue, a: 1, spark: true });
       }
+    }
+
+    /** 同じ数のぷにが触れていたら合体させる (ゲーム用) */
+    checkMerges() {
+      const bl = this.blobs;
+      for (let i = 0; i < bl.length; i++) {
+        const A = bl[i];
+        if (A.dying || A.scale < 0.85) continue;
+        for (let j = i + 1; j < bl.length; j++) {
+          const B = bl[j];
+          if (B.dying || B.scale < 0.85 || B.value !== A.value) continue;
+          const d = Math.hypot(A.cx - B.cx, A.cy - B.cy);
+          if (d < (A.R + B.R) * 1.04) {
+            const v = A.value * 2;
+            // 下にある方の位置で生まれる
+            const lower = A.cy > B.cy ? A : B;
+            this.mergeAt(A, B, v, lower.cx * 0.7 + (A.cx + B.cx) / 2 * 0.3, lower.cy * 0.7 + (A.cy + B.cy) / 2 * 0.3);
+            if (this.onAutoMerge) this.onAutoMerge(v, (A.cx + B.cx) / 2, (A.cy + B.cy) / 2);
+            return;
+          }
+        }
+      }
+    }
+
+    mergeAt(a, b, value, mx, my) {
+      a.dying = { tx: mx, ty: my, kind: 'merge' };
+      b.dying = { tx: mx, ty: my, kind: 'merge' };
+      setTimeout(() => {
+        const nb = this.add(mx, my, value, { scale: 0.35, vy: -3 });
+        if (nb) { nb.sv = 0.1; this.burst(mx, my, nb.hue); }
+      }, 140);
     }
 
     blobAt(x, y) {
@@ -229,6 +270,7 @@ window.MS = window.MS || {};
         }
       }
       this.blobs = this.blobs.filter(b => !(b.dying && b.scale < 0.12));
+      if (this.autoMerge) this.checkMerges();
 
       // 背景の粒子
       for (const p of this.particles) {

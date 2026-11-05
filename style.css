@@ -191,6 +191,50 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 .hist span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist b { color: var(--cyan); font-weight: 600; white-space: nowrap; }
 
+/* ---------- ゲーム: 2ⁿ DROP ---------- */
+.tbtn.game-btn { border-color: rgba(255, 107, 214, 0.45); color: #ffd0f1; }
+.game {
+  position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: radial-gradient(900px 600px at 50% 40%, #0f0a26 0%, var(--bg2) 50%, var(--bg) 85%);
+  outline: none;
+}
+.g-top { display: flex; align-items: center; gap: 12px; max-width: 520px; width: 100%; margin: 0 auto; }
+.g-title { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.g-title b {
+  font-size: 22px; letter-spacing: 0.14em; font-weight: 800;
+  background: linear-gradient(90deg, var(--cyan), var(--violet) 50%, var(--pink));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.g-title small { color: var(--muted); font-size: 11.5px; }
+.g-close { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line-hi); background: rgba(255, 255, 255, 0.04); font-size: 16px; flex-shrink: 0; }
+.g-hud { display: flex; align-items: center; gap: 16px; max-width: 520px; width: 100%; margin: 0 auto; }
+.g-hud > div { display: flex; flex-direction: column; }
+.g-hud span { font-size: 10px; letter-spacing: 0.2em; color: var(--muted); }
+.g-hud b { font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.g-next i {
+  font-style: normal; font-family: var(--mono); font-weight: 700; font-size: 13px;
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; margin-top: 2px;
+  background: radial-gradient(circle at 35% 30%, hsla(var(--h), 100%, 90%, 0.95), hsla(var(--h), 95%, 62%, 0.9) 45%, hsla(calc(var(--h) + 28), 85%, 34%, 0.95));
+  box-shadow: 0 0 14px hsla(var(--h), 100%, 60%, 0.6);
+}
+.g-hud .btn { margin-left: auto; }
+.g-box {
+  position: relative; flex: 1; min-height: 0; width: 100%; max-width: 520px; margin: 0 auto;
+  border: 1px solid var(--line-hi); border-top: 0; border-radius: 0 0 22px 22px;
+  background: linear-gradient(180deg, rgba(10, 8, 24, 0.3), rgba(30, 16, 70, 0.35));
+  box-shadow: inset 0 -30px 60px rgba(120, 80, 255, 0.12), 0 0 40px rgba(120, 80, 255, 0.15);
+  overflow: hidden;
+}
+#gameCanvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.g-hint { margin: 0 auto; max-width: 520px; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.g-over { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(2, 2, 8, 0.55); padding: 16px; }
+.g-over-card { padding: 20px 24px; text-align: center; min-width: 240px; background: rgba(12, 10, 26, 0.95); }
+.g-over-card h2 { margin: 0 0 12px; letter-spacing: 0.2em; font-size: 18px; color: var(--pink); }
+.g-over-card dl { display: grid; grid-template-columns: auto auto; gap: 6px 16px; margin: 0 0 16px; text-align: left; }
+.g-over-card dt { color: var(--muted); font-size: 12.5px; }
+.g-over-card dd { margin: 0; font-family: var(--mono); font-weight: 700; text-align: right; }
+
 /* 履歴ボタンと一覧 */
 .hist-btn {
   position: absolute; left: 10px; top: 10px; z-index: 1;
@@ -448,7 +492,8 @@ body.dragging-num { cursor: grabbing; user-select: none; -webkit-user-select: no
   .top { padding-block: 10px 4px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); flex-wrap: wrap; }
   .tag { display: none; }
   .logo { font-size: 18px; }
-  .tools { gap: 6px; }
+  .tools { gap: 6px; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .tools::-webkit-scrollbar { display: none; }
   .tbtn { padding: 6px 10px; font-size: 12px; }
   /* 空間は画面いっぱい、計算機は下から引き出すシート */
   .layout { display: block; position: relative; flex: 1; padding: 0; }
