@@ -294,6 +294,7 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
   text-align: center; color: var(--muted); font-size: 14px; line-height: 1.9;
   pointer-events: none; transition: opacity .6s; width: min(90%, 460px);
 }
+.hint span { display: block; white-space: nowrap; font-size: clamp(12px, 3.6vw, 14px); }
 .hint b { color: var(--text); }
 .hint.gone { opacity: 0; }
 .trash {
