@@ -139,6 +139,7 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
   border-radius: 8px; transition: background .2s;
 }
 .result:hover { background: rgba(94, 241, 255, 0.06); }
+.result .op { margin: 0 0.12em; color: var(--cyan); }
 .result.typing { color: #fff; text-shadow: 0 0 14px rgba(180, 140, 255, 0.45); }
 .result.err { color: var(--pink); font-size: 22px !important; }
 .result.pulse { animation: pulse .45s; }
@@ -170,8 +171,8 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 .key.fn { color: var(--pink); }
 .key.eq {
   grid-column: span 2;
-  background: linear-gradient(135deg, #5b3bff, #b14bff 55%, #ff5fcf);
-  border-color: transparent; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, #5b3bff, #b14bff 55%, #ff5fcf) border-box;
+  border: 0; font-weight: 700; color: #fff;
   box-shadow: 0 0 22px rgba(160, 90, 255, 0.5);
 }
 .hist-wrap { min-height: 0; flex: 1; display: flex; flex-direction: column; }

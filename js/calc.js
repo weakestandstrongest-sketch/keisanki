@@ -285,7 +285,8 @@ window.MS = window.MS || {};
       } else {
         // = を押すまでは、入力中の式 (+ − × ÷ も) を大きく表示する
         this.exprEl.textContent = ' ';
-        this.resultEl.textContent = this.expr ? pretty(this.expr) : MS.fmt(this.last);
+        if (this.expr) this.resultEl.innerHTML = tight(this.expr);
+        else this.resultEl.textContent = MS.fmt(this.last);
         this.resultEl.classList.toggle('typing', !!this.expr);
       }
       fitText(this.resultEl);
@@ -298,6 +299,13 @@ window.MS = window.MS || {};
     s = s.replace(/-/g, '−').replace(/mod/g, ' mod ').replace(/([+−×÷^])/g, ' $1 ').replace(/\s+/g, ' ').trim()
       .replace(/\( − /g, '(−').replace(/^− /, '−');
     return s.replace(/E§(\d+)§/g, (m, i) => 'e' + ex[+i]);
+  }
+
+  /** 大きい表示用: 余分な空白を入れず、演算子だけ少し間をあける */
+  function tight(s) {
+    const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return pretty(s).split(' ').filter(Boolean).map((t) =>
+      /^(\+|−|×|÷|\^|mod)$/.test(t) ? `<span class="op">${esc(t)}</span>` : esc(t)).join('');
   }
 
   /** 枠に収まるまで文字を小さくし、それでも長ければ末尾 (今打っている所) を見せる */
