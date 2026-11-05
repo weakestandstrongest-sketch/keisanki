@@ -6,7 +6,7 @@
   <title>MATHSCAPE</title>
   <meta name="description" content="数字・数式・条件・可能性を自由に操作できる、自分だけの計算空間。">
   <meta name="theme-color" content="#06051a">
-  <link rel="stylesheet" href="style.css?v=202611050439">
+  <link rel="stylesheet" href="style.css?v=202611050444">
 </head>
 <body>
   <div class="bg" aria-hidden="true">
@@ -34,6 +34,7 @@
         <span></span><small><b class="up">↑ 引っ張ると計算機</b><b class="down">↓ 下げると空間へ</b></small>
       </div>
       <div class="display">
+        <button type="button" class="hist-btn" id="btnHistory" aria-label="履歴を開く" aria-expanded="false">🕘<span id="histCount"></span></button>
         <div class="expr" id="expr">&nbsp;</div>
         <div class="result" id="result" role="button" tabindex="0" title="タップで分析 / ドラッグで空間へ">0</div>
       </div>
@@ -42,6 +43,15 @@
         <button type="button" class="btn glow" id="btnPuni">◉ ぷに化</button>
       </div>
       <div class="keys" id="keys"></div>
+      <div class="hist-panel" id="histPanel" hidden>
+        <div class="hp-head">
+          <b>履歴</b>
+          <span class="hp-note">タップで式を計算機に戻す</span>
+          <button type="button" class="hp-clear" id="histClear">消す</button>
+          <button type="button" class="hp-close" id="histClose" aria-label="履歴を閉じる">✕</button>
+        </div>
+        <div class="hp-list" id="histList"></div>
+      </div>
       <div class="hist-wrap">
         <div class="hist-title">HISTORY <span>— タップで分析 · ドラッグで空間へ</span></div>
         <div class="history" id="history"></div>
@@ -89,12 +99,12 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="ghost" id="ghost" hidden></div>
 
-  <script src="js/format.js?v=202611050439"></script>
-  <script src="js/numlab.js?v=202611050439"></script>
-  <script src="js/calc.js?v=202611050439"></script>
-  <script src="js/blobs.js?v=202611050439"></script>
-  <script src="js/inspector.js?v=202611050439"></script>
-  <script src="js/holo.js?v=202611050439"></script>
-  <script src="js/app.js?v=202611050439"></script>
+  <script src="js/format.js?v=202611050444"></script>
+  <script src="js/numlab.js?v=202611050444"></script>
+  <script src="js/calc.js?v=202611050444"></script>
+  <script src="js/blobs.js?v=202611050444"></script>
+  <script src="js/inspector.js?v=202611050444"></script>
+  <script src="js/holo.js?v=202611050444"></script>
+  <script src="js/app.js?v=202611050444"></script>
 </body>
 </html>

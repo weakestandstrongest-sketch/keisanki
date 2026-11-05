@@ -114,6 +114,7 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 
 /* ---------- 計算機 ---------- */
 .calc {
+  position: relative;
   display: flex; flex-direction: column; gap: 10px; padding: 14px;
   min-height: 0; overflow: hidden;
   transition: border-color .2s, box-shadow .2s;
@@ -122,7 +123,8 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 .calc.got { animation: got .5s; }
 @keyframes got { 30% { box-shadow: 0 0 0 3px rgba(94, 241, 255, 0.6), 0 0 50px rgba(94, 241, 255, 0.5); } }
 .display {
-  border-radius: 14px; padding: 12px 14px 10px;
+  position: relative;
+  border-radius: 14px; padding: 12px 14px 10px 54px;
   background: linear-gradient(160deg, rgba(4, 4, 10, 0.95), rgba(14, 10, 34, 0.85));
   border: 1px solid var(--line);
   box-shadow: inset 0 0 30px rgba(100, 70, 255, 0.18);
@@ -188,6 +190,41 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 .hist:hover { border-color: var(--line); }
 .hist span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist b { color: var(--cyan); font-weight: 600; white-space: nowrap; }
+
+/* 履歴ボタンと一覧 */
+.hist-btn {
+  position: absolute; left: 10px; top: 10px; z-index: 1;
+  display: flex; align-items: center; gap: 3px;
+  height: 32px; min-width: 32px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); font-size: 15px;
+}
+.hist-btn span { font-family: var(--mono); font-size: 11px; color: var(--cyan); }
+.hist-btn[aria-expanded="true"] { border-color: var(--cyan); }
+.hist-panel {
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
+  top: 0; display: flex; flex-direction: column;
+  background: var(--panel-solid); border-radius: inherit;
+  padding: 14px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  animation: hp-in .2s ease-out;
+}
+@keyframes hp-in { from { opacity: 0; transform: translateY(10px); } }
+.hp-head { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.hp-head b { font-size: 16px; }
+.hp-note { font-size: 11.5px; color: var(--muted); flex: 1; min-width: 0; }
+.hp-clear, .hp-close { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; }
+.hp-close { width: 32px; height: 32px; padding: 0; }
+.hp-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; overscroll-behavior: contain; }
+.hp-row { display: flex; gap: 6px; }
+.hp-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  border: 1px solid rgba(150, 130, 255, 0.14); background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px; padding: 10px 14px; font-family: var(--mono); text-align: right;
+}
+.hp-main span { color: var(--muted); font-size: 13px; max-width: 100%; overflow-wrap: anywhere; }
+.hp-main b { color: #fff; font-size: 22px; font-weight: 600; }
+.hp-main:active { border-color: var(--cyan); }
+.hp-act { width: 44px; border: 1px solid rgba(150, 130, 255, 0.14); background: rgba(255, 255, 255, 0.03); border-radius: 12px; font-size: 16px; color: var(--cyan); }
+.hp-empty { color: var(--muted); text-align: center; line-height: 1.8; margin-top: 30px; font-size: 13px; }
 
 /* 引き出しのつまみ (スマホのみ表示) */
 .sheet-handle {
@@ -436,8 +473,8 @@ body.dragging-num { cursor: grabbing; user-select: none; -webkit-user-select: no
   .calc .display { padding: 8px 12px 6px; }
   .key { height: 54px; font-size: 20px; }
   .calc:not(.open) .display-actions { opacity: 0.85; }
-  .hist-wrap { min-height: 60px; }
-  .history { max-height: 22vh; }
+  .hist-wrap { display: none; }
+  .hist-panel { top: 34px; border-radius: 0; }
   .inspector {
     top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 78vh; max-height: 78dvh;
     padding-bottom: env(safe-area-inset-bottom, 0px);

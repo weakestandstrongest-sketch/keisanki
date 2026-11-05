@@ -436,6 +436,47 @@
     $('btnPuni').addEventListener('click', () => { if (mq.matches) setOpen(false); });
   })();
 
+  /* ---------- 履歴の一覧 (🕘) ---------- */
+  (function historyPanel() {
+    const panel = $('histPanel'), list = $('histList'), btn = $('btnHistory');
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    function render() {
+      $('histCount').textContent = calc.history.length ? calc.history.length : '';
+      if (!calc.history.length) {
+        list.innerHTML = '<p class="hp-empty">まだ計算していません。<br>「=」を押すと、ここに式と答えが残ります。</p>';
+        return;
+      }
+      list.innerHTML = calc.history.map((h, i) =>
+        `<div class="hp-row">` +
+          `<button type="button" class="hp-main" data-i="${i}"><span>${esc(MS.prettyExpr(h.expr))} =</span><b>${esc(MS.fmt(h.v))}</b></button>` +
+          `<button type="button" class="hp-act" data-i="${i}" data-act="puni" aria-label="ぷにする">◉</button>` +
+          `<button type="button" class="hp-act" data-i="${i}" data-act="look" aria-label="調べる">🔍</button>` +
+        `</div>`).join('');
+    }
+    function open(on) {
+      if (on) render();
+      panel.hidden = !on;
+      btn.setAttribute('aria-expanded', String(on));
+      if (on && MS.sheet && mobileMQ.matches) MS.sheet.setOpen(true);
+    }
+    btn.addEventListener('click', (e) => { e.stopPropagation(); open(panel.hidden); });
+    $('histClose').addEventListener('click', () => open(false));
+    $('histClear').addEventListener('click', () => { calc.clearHistory(); render(); });
+    list.addEventListener('click', (e) => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      const h = calc.history[+t.dataset.i];
+      if (!h) return;
+      if (t.dataset.act === 'puni') { spawn(h.v, t); return; }
+      if (t.dataset.act === 'look') { inspector.open(h.v, false); return; }
+      calc.loadExpr(h.expr, h.v);
+      open(false);
+      toast('式を計算機に戻しました');
+    });
+    const prevRender = calc.renderHistory.bind(calc);
+    calc.renderHistory = () => { prevRender(); if (!panel.hidden) render(); $('histCount').textContent = calc.history.length || ''; };
+  })();
+
   /* ---------- キーボード ---------- */
   document.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input, textarea, select')) return;
@@ -447,7 +488,8 @@
     else if (k === 'Enter' || k === '=') { if (e.target.closest && e.target.closest('button, [role="button"]') && !e.target.closest('#keys')) return; calc.press('eq'); }
     else if (k === 'Backspace') calc.press('back');
     else if (k === 'Escape') {
-      if (pick) closePicker();
+      if (!$('histPanel').hidden) $('histPanel').hidden = true;
+      else if (pick) closePicker();
       else if (!$('help').hidden) $('help').hidden = true;
       else if (!$('inspector').hidden) inspector.close();
       else calc.press('clear');

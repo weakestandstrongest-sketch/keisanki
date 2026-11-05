@@ -245,7 +245,20 @@ window.MS = window.MS || {};
 
     pushHistory(expr, v) {
       this.history.unshift({ expr, v });
-      this.history = this.history.slice(0, 12);
+      this.history = this.history.slice(0, 30);
+      this.renderHistory();
+    }
+
+    /** 履歴の式を計算機に戻す (戻せない式なら答えの数を入れる) */
+    loadExpr(expr, v) {
+      const ok = tryEvaluate(expr) !== null && /^[0-9.e+\-×÷^√π%²!()mod ]+$/.test(expr);
+      this.expr = ok ? expr : MS.raw(v);
+      this.justEval = false;
+      this.render();
+    }
+
+    clearHistory() {
+      this.history = [];
       this.renderHistory();
     }
 
@@ -265,6 +278,7 @@ window.MS = window.MS || {};
         b.lastChild.textContent = MS.fmt(h.v);
         b.dataset.value = h.v;
         this.historyEl.appendChild(b);
+        if (this.historyEl.children.length >= 12) break;
       }
       if (this.onHistoryRender) this.onHistoryRender(this.historyEl);
     }
@@ -323,4 +337,5 @@ window.MS = window.MS || {};
   MS.tryEvaluate = tryEvaluate;
   MS.factorial = factorial;
   MS.Calculator = Calculator;
+  MS.prettyExpr = pretty;
 })(window.MS);
