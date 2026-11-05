@@ -133,13 +133,13 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 }
 .result {
   font-family: var(--mono); font-weight: 600; text-align: right; font-size: 44px; line-height: 1.15;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; overflow: hidden;
   color: #fff; text-shadow: 0 0 18px rgba(94, 241, 255, 0.55);
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
   border-radius: 8px; transition: background .2s;
 }
 .result:hover { background: rgba(94, 241, 255, 0.06); }
-.result.preview { color: #cfcaf5; text-shadow: none; }
+.result.typing { color: #fff; text-shadow: 0 0 14px rgba(180, 140, 255, 0.45); }
 .result.err { color: var(--pink); font-size: 22px !important; }
 .result.pulse { animation: pulse .45s; }
 @keyframes pulse { 40% { text-shadow: 0 0 30px var(--cyan), 0 0 60px var(--violet); transform: scale(1.02); } }
@@ -409,7 +409,6 @@ body.dragging-num { cursor: grabbing; user-select: none; -webkit-user-select: no
   .calc.dragging { transition: none; }
   .sheet-handle { display: flex; }
   .calc .display { padding: 8px 12px 6px; }
-  .calc .result { font-size: 36px; }
   .key { height: 54px; font-size: 20px; }
   .calc:not(.open) .display-actions { opacity: 0.85; }
   .hist-wrap { min-height: 60px; }

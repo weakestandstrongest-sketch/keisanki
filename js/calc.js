@@ -281,12 +281,12 @@ window.MS = window.MS || {};
         this.exprEl.textContent = pretty(doneExpr || this.exprEl.dataset.done || '') + ' =';
         if (doneExpr) this.exprEl.dataset.done = doneExpr;
         this.resultEl.textContent = MS.fmt(this.last);
-        this.resultEl.classList.remove('preview');
+        this.resultEl.classList.remove('typing');
       } else {
-        this.exprEl.textContent = pretty(this.expr) || ' ';
-        const v = this.expr ? tryEvaluate(this.expr) : this.last;
-        this.resultEl.textContent = v === null ? '…' : MS.fmt(v);
-        this.resultEl.classList.toggle('preview', !!this.expr);
+        // = を押すまでは、入力中の式 (+ − × ÷ も) を大きく表示する
+        this.exprEl.textContent = ' ';
+        this.resultEl.textContent = this.expr ? pretty(this.expr) : MS.fmt(this.last);
+        this.resultEl.classList.toggle('typing', !!this.expr);
       }
       fitText(this.resultEl);
     }
@@ -300,10 +300,15 @@ window.MS = window.MS || {};
     return s.replace(/E§(\d+)§/g, (m, i) => 'e' + ex[+i]);
   }
 
+  /** 枠に収まるまで文字を小さくし、それでも長ければ末尾 (今打っている所) を見せる */
   function fitText(el) {
-    const len = el.textContent.length;
-    const size = len <= 9 ? 44 : len <= 12 ? 36 : len <= 16 ? 28 : 22;
+    let size = 46;
     el.style.fontSize = size + 'px';
+    while (size > 22 && el.scrollWidth > el.clientWidth + 1) {
+      size -= 2;
+      el.style.fontSize = size + 'px';
+    }
+    el.scrollLeft = el.scrollWidth;
   }
 
   MS.evaluate = evaluate;
