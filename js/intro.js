@@ -157,24 +157,23 @@ window.MS = window.MS || {};
       this.root.classList.remove('out');
       this.logo.classList.remove('show');
       if (K.init) K.init();
-      let t = 0;
+      this.t = 0; // 経過時間 (再生のたびに 0 から)
       if (!this.holo) {
         this.holo = new MS.Holo(this.canvas, {
           beforeUpdate: (dt, h) => {
             if (!this.playing) return;
-            t += dt;
+            this.t += dt;
+            const t = this.t;
             h.fx = this.kind.fx(t);
             h.zoom = this.kind.zoom(t);
             h.idle = 0;
             if (t >= this.kind.logoAt) this.logo.classList.add('show');
             if (t >= this.kind.dur) this.finish();
           },
-          afterDraw: (g, h) => { if (this.playing && this.kind.after) this.kind.after(g, h, t); },
+          afterDraw: (g, h) => { if (this.playing && this.kind.after) this.kind.after(g, h, this.t); },
         });
         this.holo.hideLabels = true;
       }
-      this._reset = () => { t = 0; };
-      this._reset();
       const h = this.holo;
       h.t = 0; h.userYaw = 0; h.pitchT = 0.58; h.pitch = 0.58; h.yaw = h.yaw0;
       h.fx = K.fx(0);
@@ -189,7 +188,9 @@ window.MS = window.MS || {};
       this.playing = false;
       this.logo.classList.add('show');
       this.root.classList.add('out');
+      const token = this.token = (this.token || 0) + 1;
       setTimeout(() => {
+        if (token !== this.token || this.playing) return;
         this.root.hidden = true;
         if (this.holo) { this.holo.setActive(false); this.holo.fx = null; }
         const d = this.done; this.done = null;
