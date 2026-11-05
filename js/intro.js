@@ -127,7 +127,7 @@ window.MS = window.MS || {};
       },
     },
   };
-  const ORDER = ['boot', 'beam', 'warp'];
+  const ORDER = ['warp', 'boot', 'beam'];
 
   class Intro {
     constructor(root) {
@@ -141,7 +141,7 @@ window.MS = window.MS || {};
     static get kinds() { return ORDER.map((k) => [k, KINDS[k].name]); }
 
     static pref() {
-      try { return localStorage.getItem('mathscape-intro') || 'random'; } catch (e) { return 'random'; }
+      try { return localStorage.getItem('mathscape-intro') || 'warp'; } catch (e) { return 'warp'; }
     }
     static setPref(v) { try { localStorage.setItem('mathscape-intro', v); } catch (e) { /* noop */ } }
 
