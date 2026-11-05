@@ -341,7 +341,7 @@
     if (!on) { holo.disableTilt(); setTiltUI(); requestAnimationFrame(() => world.resize()); }
     if (full && fromGesture) {
       tryTilt(); // iPhone の許可ダイアログはボタン操作の中でしか出せない
-      toast('傾けて回す · はじいて結晶を選ぶ · カードを左右に');
+      toast('傾けて回す · はじいて結晶を選ぶ · パネル長押しで拡大');
     }
     try { history.replaceState(null, '', on ? '#holo' : location.pathname + location.search); } catch (e) { /* noop */ }
   }

@@ -76,9 +76,10 @@ window.MS = window.MS || {};
       this.flights = []; this.bursts = [];
       this.build();
       this.panels = [
-        { id: 'spectrum', c: [-1.62, 0.78, 0.5], w: [0, 0, -1], W: 1.3, H: 0.88, draw: (g, W, H) => this.drawSpectrum(g, W, H) },
-        { id: 'residue', c: [-1.5, 1.08, -0.75], w: [0, 0, -1], W: 1.05, H: 0.74, draw: (g, W, H) => this.drawResidues(g, W, H) },
-        { id: 'signal', c: [0.95, 0.88, -1.62], w: [1, 0, 0], W: 1.36, H: 0.86, draw: (g, W, H) => this.drawSignal(g, W, H) },
+        // pc / pS: 縦長画面での位置と大きさ (台座の上の空いた所に、周りを囲むように)
+        { id: 'spectrum', c: [-1.62, 0.78, 0.5], pc: [-1.22, 2.05, 0.3], pS: 0.95, w: [0, 0, -1], W: 1.3, H: 0.88, draw: (g, W, H) => this.drawSpectrum(g, W, H) },
+        { id: 'residue', c: [-1.5, 1.08, -0.75], pc: [-0.95, 2.95, -0.95], pS: 1.1, w: [0, 0, -1], W: 1.05, H: 0.74, draw: (g, W, H) => this.drawResidues(g, W, H) },
+        { id: 'signal', c: [0.95, 0.88, -1.62], pc: [0.62, 2.15, -1.12], pS: 0.9, w: [1, 0, 0], W: 1.36, H: 0.86, draw: (g, W, H) => this.drawSignal(g, W, H) },
       ];
       for (const p of this.panels) {
         p.cv = document.createElement('canvas');
@@ -239,7 +240,7 @@ window.MS = window.MS || {};
 
     /* ---------- 入力 ----------
        ドラッグ: 回転 / すばやく左右にはじく: 結晶を順番に選ぶ / タップ: 結晶を選ぶ
-       カードの上で左右スワイプ: パネル切替 / カードを長押し: 正面を向く / 2 本指: 拡大縮小 */
+       パネルを長押し: 正面を向いて大きく / 2 本指: 拡大縮小 */
     bindInput() {
       const pts = new Map();
       let st = null, pinch = null;
@@ -258,9 +259,10 @@ window.MS = window.MS || {};
         if (pts.size > 2) return;
         const p = local(e);
         st = { x: e.clientX, y: e.clientY, t: performance.now(), userYaw: this.userYaw, pitch: this.pitchT, moved: false, id: e.pointerId,
-          onCard: this.cardMode && this.inCard(p.x, p.y) };
-        if (st.onCard) {
-          st.lpTimer = setTimeout(() => { if (st && !st.moved) { st.lp = true; this.flatT = 1; } }, 420);
+          panel: this.panelAt(p.x, p.y) };
+        if (st.panel) {
+          const panel = st.panel;
+          st.lpTimer = setTimeout(() => { if (st && !st.moved) { st.lp = true; this.flatPanel = panel; this.flatT = 1; } }, 380);
         }
       });
       this.c.addEventListener('pointermove', (e) => {
@@ -282,7 +284,6 @@ window.MS = window.MS || {};
         const dx = e.clientX - st.x, dy = e.clientY - st.y;
         if (!st.moved && Math.hypot(dx, dy) > 6) { st.moved = true; clearTimeout(st.lpTimer); }
         if (!st.moved || st.lp) return;
-        if (st.onCard) { this.cardDrag = dx; return; }
         this.userYaw = Math.max(-0.55, Math.min(0.55, st.userYaw + dx * 0.005));
         this.pitchT = Math.max(0.3, Math.min(0.95, st.pitch + dy * 0.004));
       });
@@ -295,9 +296,6 @@ window.MS = window.MS || {};
         const quick = performance.now() - st.t < 300;
         if (st.lp) {
           this.flatT = 0;
-        } else if (st.onCard && st.moved) {
-          if (Math.abs(dx) > 40) this.switchCard(dx < 0 ? 1 : -1);
-          this.cardDrag = 0;
         } else if (!st.moved) {
           const hit = this.hitCrystal(e);
           if (hit) { this.setFocus(hit.v); hit.pop = 1; }
@@ -311,20 +309,13 @@ window.MS = window.MS || {};
       this.c.addEventListener('pointerup', end);
       this.c.addEventListener('pointercancel', (e) => {
         pts.delete(e.pointerId); pinch = null;
-        if (st) { clearTimeout(st.lpTimer); this.flatT = 0; this.cardDrag = 0; }
+        if (st) { clearTimeout(st.lpTimer); this.flatT = 0; }
         st = null;
       });
       this.c.addEventListener('wheel', (e) => {
         e.preventDefault();
         this.zoom = Math.max(0.7, Math.min(1.9, this.zoom * Math.exp(-e.deltaY * 0.0015)));
       }, { passive: false });
-    }
-
-    switchCard(dir) {
-      this.cardIndex = (this.cardIndex + dir + this.panels.length) % this.panels.length;
-      this.cardSlide = dir;
-      this.panelTick = 0;
-      if (this.opts.onCard) this.opts.onCard(this.cardIndex);
     }
 
     /** 画面の左から右の順で、となりの結晶を選ぶ */
@@ -337,9 +328,14 @@ window.MS = window.MS || {};
       list[i].pop = 1;
     }
 
-    inCard(x, y) {
-      const r = this.cardRect;
-      return !!r && x >= r.x0 - 10 && x <= r.x1 + 10 && y >= r.y0 - 10 && y <= r.y1 + 10;
+    /** その位置にあるパネル (手前のものを優先) */
+    panelAt(x, y) {
+      let best = null;
+      for (const p of this.panels) {
+        const r = p.rect;
+        if (r && x >= r.x0 - 6 && x <= r.x1 + 6 && y >= r.y0 - 6 && y <= r.y1 + 6) best = p;
+      }
+      return best;
     }
 
     hitCrystal(e) {
@@ -363,7 +359,7 @@ window.MS = window.MS || {};
       this.yaw += (this.yawT - this.yaw) * 0.1;
       this.pitch += (pT - this.pitch) * 0.1;
       this.kz = this.k * this.zoom;
-      this.cardMode = this.portrait;
+      this.cardMode = false;
       this.flat += (this.flatT - this.flat) * 0.18;
       this.cardSlide *= 0.82; if (Math.abs(this.cardSlide) < 0.002) this.cardSlide = 0;
       // 飛んでいる光が着いたら、結晶が生まれてフォーカスが移る
@@ -409,8 +405,11 @@ window.MS = window.MS || {};
       this.panelTick = (this.panelTick || 0) - 1;
       const redraw = this.panelTick <= 0;
       if (redraw) this.panelTick = 4;
-      if (!this.cardMode) for (const { p } of backPanels) this.drawPanel(p, redraw);
-      else this.cardRect = null;
+      for (const { p } of backPanels) {
+        if (p === this.flatPanel && this.flat >= 0.01) { if (redraw) this.redrawPanel(p); continue; }
+        this.drawPanel(p, redraw);
+      }
+      if (this.flatPanel && this.flat >= 0.01) for (const { p } of frontPanels) if (p === this.flatPanel && redraw) this.redrawPanel(p);
 
       // 台座
       this.drawSlab(this.base, 0, 0.13, { top: ['#1c1946', '#0d0b26'], side: [22, 20, 58], edge: 'rgba(170,190,255,0.55)', glow: 'rgba(120,200,255,0.5)' });
@@ -426,8 +425,9 @@ window.MS = window.MS || {};
 
       this.drawFibers();
       this.drawSparks();
-      if (this.cardMode) this.drawCard(redraw);
-      else for (const { p } of frontPanels) this.drawPanel(p, redraw);
+      for (const { p } of frontPanels) if (p !== this.flatPanel || this.flat < 0.01) this.drawPanel(p, redraw);
+      // 長押し中のパネルは、いちばん手前に平らに出す
+      if (this.flatPanel && this.flat >= 0.01) this.drawPanel(this.flatPanel, false);
       this.drawLabels(cs);
       this.drawFlights();
     }
@@ -766,23 +766,37 @@ window.MS = window.MS || {};
     }
 
     /* ---------- 浮かぶパネル ---------- */
+    redrawPanel(p) {
+      const pg = p.cv.getContext('2d');
+      pg.setTransform(1, 0, 0, 1, 0, 0);
+      pg.clearRect(0, 0, p.cv.width, p.cv.height);
+      pg.setTransform(1.4, 0, 0, 1.4, 0, 0);
+      p.draw(pg, 420, Math.round(420 * p.H / p.W));
+    }
+
     drawPanel(p, redraw) {
       const g = this.ctx;
-      const [cx, cy, cz] = p.c;
+      const [cx, cy, cz] = this.portrait ? p.pc : p.c;
       const [wx, , wz] = p.w;
-      const hw = p.W / 2, hh = p.H / 2;
+      const sc = this.portrait ? p.pS : 1;
+      const hw = p.W * sc / 2, hh = p.H * sc / 2;
       const float = Math.sin(this.t * 0.9 + cx) * 0.02;
-      const P0 = this.proj(cx - wx * hw, cy + hh + float, cz - wz * hw);
-      const P1 = this.proj(cx + wx * hw, cy + hh + float, cz + wz * hw);
-      const P3 = this.proj(cx - wx * hw, cy - hh + float, cz - wz * hw);
-      const P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
-      if (redraw) {
-        const pg = p.cv.getContext('2d');
-        pg.setTransform(1, 0, 0, 1, 0, 0);
-        pg.clearRect(0, 0, p.cv.width, p.cv.height);
-        pg.setTransform(1.4, 0, 0, 1.4, 0, 0);
-        p.draw(pg, 420, Math.round(420 * p.H / p.W));
+      let P0 = this.proj(cx - wx * hw, cy + hh + float, cz - wz * hw);
+      let P1 = this.proj(cx + wx * hw, cy + hh + float, cz + wz * hw);
+      let P3 = this.proj(cx - wx * hw, cy - hh + float, cz - wz * hw);
+      let P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
+      const xs = [P0.x, P1.x, P2.x, P3.x], ys = [P0.y, P1.y, P2.y, P3.y];
+      p.rect = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+      // 長押し中: 平らに正面を向いて大きく
+      if (p === this.flatPanel && this.flat > 0.001) {
+        const f = this.flat;
+        const fw = Math.min(this.w - 28, 560), fh = fw * p.H / p.W;
+        const fx = (this.w - fw) / 2, fy = Math.max(12, (this.h - fh) * 0.35);
+        const L = (a, bx, by) => ({ x: a.x + (bx - a.x) * f, y: a.y + (by - a.y) * f });
+        P0 = L(P0, fx, fy); P1 = L(P1, fx + fw, fy); P3 = L(P3, fx, fy + fh);
+        P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
       }
+      if (redraw) this.redrawPanel(p);
       const W = p.cv.width, H = p.cv.height;
       g.save();
       g.setTransform(
@@ -798,83 +812,6 @@ window.MS = window.MS || {};
       g.lineWidth = 3;
       g.beginPath(); g.moveTo(P0.x, P0.y); g.lineTo(P1.x, P1.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.stroke();
       g.restore();
-    }
-
-    /** 縦長画面: 選んだ 1 枚のパネルを、台座の上に大きく浮かべる */
-    drawCard(redraw) {
-      const g = this.ctx;
-      const p = this.panels[this.cardIndex];
-      if (redraw) {
-        const pg = p.cv.getContext('2d');
-        pg.setTransform(1, 0, 0, 1, 0, 0);
-        pg.clearRect(0, 0, p.cv.width, p.cv.height);
-        pg.setTransform(1.4, 0, 0, 1.4, 0, 0);
-        p.draw(pg, 420, Math.round(420 * p.H / p.W));
-      }
-      const W = 2.4, H = W * p.H / p.W;
-      const s0 = Math.sin(this.yaw0), c0 = Math.cos(this.yaw0);
-      const float = Math.sin(this.t * 0.9) * 0.025;
-      // 画面の上の空いた部分に浮かべる
-      const room = (this.oy - 150) / (this.kz * this.cp); // 上端から 150px 下まで使える高さ
-      const cy = Math.max(1.9, Math.min(3.4, room - H / 2 - 0.15)) + float;
-      const cx = -s0 * 0.5, cz = -c0 * 0.5;
-      const wx = c0, wz = -s0; // 正面を向く向き (台座と一緒に回る)
-      let P0 = this.proj(cx - wx * W / 2, cy + H / 2, cz - wz * W / 2);
-      let P1 = this.proj(cx + wx * W / 2, cy + H / 2, cz + wz * W / 2);
-      let P3 = this.proj(cx - wx * W / 2, cy - H / 2, cz - wz * W / 2);
-      // 長押し中は、平らに正面へ
-      const f = this.flat;
-      if (f > 0.001) {
-        const fw = this.w - 28, fh = fw * p.H / p.W;
-        const mid = (P0.y + P3.y) / 2;
-        const fy = Math.max(12, Math.min(this.h - fh - 80, mid - fh / 2));
-        const F0 = { x: 14, y: fy }, F1 = { x: 14 + fw, y: fy }, F3 = { x: 14, y: fy + fh };
-        const L = (a, b) => ({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f });
-        P0 = L(P0, F0); P1 = L(P1, F1); P3 = L(P3, F3);
-      }
-      const off = this.cardSlide * this.w * 0.45 + this.cardDrag * 0.6;
-      P0 = { x: P0.x + off, y: P0.y }; P1 = { x: P1.x + off, y: P1.y }; P3 = { x: P3.x + off, y: P3.y };
-      const P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
-      const alpha = Math.max(0.15, 1 - Math.abs(this.cardSlide) * 0.9 - Math.abs(this.cardDrag) / this.w);
-
-      // 台座からカードへのぼる光
-      const base = this.proj(0, this.meshY, 0);
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      const bg = g.createLinearGradient(0, base.y, 0, P3.y);
-      bg.addColorStop(0, 'rgba(140,200,255,0.14)'); bg.addColorStop(1, 'rgba(140,200,255,0.02)');
-      g.fillStyle = bg;
-      g.beginPath(); g.moveTo(base.x - this.kz * 0.25, base.y); g.lineTo(base.x + this.kz * 0.25, base.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.fill();
-      g.restore();
-
-      g.save();
-      const cw = p.cv.width, ch = p.cv.height;
-      g.setTransform(this.dpr * (P1.x - P0.x) / cw, this.dpr * (P1.y - P0.y) / cw, this.dpr * (P3.x - P0.x) / ch, this.dpr * (P3.y - P0.y) / ch, this.dpr * P0.x, this.dpr * P0.y);
-      g.globalAlpha = 0.96 * alpha;
-      g.drawImage(p.cv, 0, 0);
-      g.restore();
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.globalAlpha = alpha;
-      g.strokeStyle = 'rgba(120,220,255,0.4)'; g.lineWidth = 4;
-      g.beginPath(); g.moveTo(P0.x, P0.y); g.lineTo(P1.x, P1.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.stroke();
-      g.restore();
-
-      // 何枚目かの点と名前
-      const names = ['桁のスペクトル', '割った余り', '成長と性質'];
-      const ys = Math.max(P2.y, P3.y) + 16, xc = (P0.x + P1.x + P2.x + P3.x) / 4 - off;
-      g.save();
-      g.textAlign = 'center';
-      g.font = '600 11px "Hiragino Sans", "Noto Sans JP", sans-serif';
-      g.fillStyle = 'rgba(200,220,255,0.75)';
-      g.fillText(`‹  ${names[this.cardIndex]}  ›`, xc, ys + 14);
-      for (let i = 0; i < this.panels.length; i++) {
-        g.fillStyle = i === this.cardIndex ? 'rgba(120,255,255,0.95)' : 'rgba(160,170,220,0.4)';
-        g.beginPath(); g.arc(xc + (i - 1) * 12, ys, i === this.cardIndex ? 3.2 : 2.4, 0, TAU); g.fill();
-      }
-      g.restore();
-      const xs = [P0.x, P1.x, P2.x, P3.x], yv = [P0.y, P1.y, P2.y, P3.y];
-      this.cardRect = { x0: Math.min(...xs) - off, x1: Math.max(...xs) - off, y0: Math.min(...yv), y1: Math.max(...yv) };
     }
 
     panelBase(g, W, H, title) {
