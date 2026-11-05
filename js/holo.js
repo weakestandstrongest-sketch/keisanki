@@ -255,9 +255,9 @@ window.MS = window.MS || {};
       g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       g.clearRect(0, 0, this.w, this.h);
       const bgr = g.createRadialGradient(this.w / 2, this.h * 0.55, 10, this.w / 2, this.h * 0.55, Math.max(this.w, this.h) * 0.75);
-      bgr.addColorStop(0, '#1a1048');
-      bgr.addColorStop(0.55, '#0a0726');
-      bgr.addColorStop(1, '#04030f');
+      bgr.addColorStop(0, '#100b2c');
+      bgr.addColorStop(0.55, '#05040f');
+      bgr.addColorStop(1, '#010103');
       g.fillStyle = bgr;
       g.fillRect(0, 0, this.w, this.h);
       for (const [sx, sy, r, a] of this.stars) {

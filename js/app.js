@@ -340,6 +340,65 @@
   };
   if (location.hash === '#holo') setTimeout(() => setHolo(true), 1400);
 
+  /* ---------- スマホ: 計算機を下から引き出すシート ---------- */
+  (function sheet() {
+    const mq = window.matchMedia('(max-width: 820px)');
+    const handle = $('sheetHandle');
+    let st = null;
+    const offsetY = () => {
+      const r = calcEl.getBoundingClientRect();
+      return r.top - (window.innerHeight - r.height);
+    };
+    const closedY = () => {
+      const peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--peek')) || 158;
+      return Math.max(0, calcEl.offsetHeight - peek);
+    };
+    const setOpen = (on) => {
+      calcEl.classList.toggle('open', on);
+      handle.setAttribute('aria-expanded', String(on));
+    };
+    const isGrabZone = (t) => t.closest('#sheetHandle') ||
+      (!t.closest('button, #result, .history') && (t.closest('.display') || t === calcEl || t.closest('.hist-title')));
+    calcEl.addEventListener('pointerdown', (e) => {
+      if (!mq.matches || !isGrabZone(e.target)) return;
+      st = { onHandle: !!e.target.closest('#sheetHandle'), y: e.clientY, base: offsetY(), max: closedY(), t: performance.now(), moved: false, id: e.pointerId, ly: e.clientY, lt: performance.now(), v: 0 };
+      calcEl.setPointerCapture(e.pointerId);
+    });
+    calcEl.addEventListener('pointermove', (e) => {
+      if (!st || e.pointerId !== st.id) return;
+      const dy = e.clientY - st.y;
+      if (!st.moved && Math.abs(dy) > 6) { st.moved = true; calcEl.classList.add('dragging'); }
+      if (!st.moved) return;
+      const now = performance.now();
+      st.v = (e.clientY - st.ly) / Math.max(1, now - st.lt);
+      st.ly = e.clientY; st.lt = now;
+      let y = st.base + dy;
+      if (y < 0) y *= 0.3; // 開ききったら少し抵抗
+      y = Math.min(st.max, y);
+      calcEl.style.transform = `translateY(${y}px)`;
+    });
+    const end = (e) => {
+      if (!st || e.pointerId !== st.id) return;
+      calcEl.classList.remove('dragging');
+      if (st.moved) {
+        const y = st.base + (e.clientY - st.y);
+        const open = st.v < -0.35 ? true : st.v > 0.35 ? false : y < st.max / 2;
+        calcEl.style.transform = '';
+        setOpen(open);
+      } else if (st.onHandle) {
+        setOpen(!calcEl.classList.contains('open'));
+      }
+      st = null;
+    };
+    calcEl.addEventListener('pointerup', end);
+    calcEl.addEventListener('pointercancel', (e) => { if (st) { calcEl.classList.remove('dragging'); calcEl.style.transform = ''; st = null; } });
+    handle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!calcEl.classList.contains('open')); }
+    });
+    // ぷに化したら空間が見えるよう閉じる
+    $('btnPuni').addEventListener('click', () => { if (mq.matches) setOpen(false); });
+  })();
+
   /* ---------- キーボード ---------- */
   document.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input, textarea, select')) return;
