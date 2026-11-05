@@ -5,8 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>MATHSCAPE</title>
   <meta name="description" content="数字・数式・条件・可能性を自由に操作できる、自分だけの計算空間。">
-  <meta name="theme-color" content="#06051a">
-  <link rel="stylesheet" href="style.css?v=202611050500">
+  <meta name="theme-color" content="#020205">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MATHSCAPE">
+  <link rel="stylesheet" href="style.css?v=202611050510">
 </head>
 <body>
   <div class="bg" aria-hidden="true">
@@ -121,20 +129,35 @@
         <li><b>重ねて計算</b> — ぷにを別のぷにの上に落とすと、＋ − × ÷ などを選んで合体。新しいぷにが生まれます。</li>
         <li><b>計算機へ戻す</b> — ぷにを計算機パネルへドラッグすると、式に数字が入ります。</li>
       </ol>
+      <div class="intro-pref">
+        <b>起動アニメーション</b>
+        <div class="seg" id="introPref"></div>
+        <button type="button" class="btn" id="introPreview">▶ 見てみる</button>
+      </div>
       <button type="button" class="btn glow" id="btnHelpClose">はじめる</button>
     </div>
+  </div>
+
+  <div class="intro" id="intro" hidden aria-hidden="true">
+    <canvas></canvas>
+    <div class="intro-logo">
+      <div class="il-name"><span>M</span><span>A</span><span>T</span><span>H</span><span>S</span><span>C</span><span>A</span><span>P</span><span>E</span></div>
+      <div class="il-tag">A new way to interact with numbers.</div>
+    </div>
+    <div class="intro-skip">タップでスキップ</div>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="ghost" id="ghost" hidden></div>
 
-  <script src="js/format.js?v=202611050500"></script>
-  <script src="js/numlab.js?v=202611050500"></script>
-  <script src="js/calc.js?v=202611050500"></script>
-  <script src="js/blobs.js?v=202611050500"></script>
-  <script src="js/inspector.js?v=202611050500"></script>
-  <script src="js/holo.js?v=202611050500"></script>
-  <script src="js/game.js?v=202611050500"></script>
-  <script src="js/app.js?v=202611050500"></script>
+  <script src="js/format.js?v=202611050510"></script>
+  <script src="js/numlab.js?v=202611050510"></script>
+  <script src="js/calc.js?v=202611050510"></script>
+  <script src="js/blobs.js?v=202611050510"></script>
+  <script src="js/inspector.js?v=202611050510"></script>
+  <script src="js/holo.js?v=202611050510"></script>
+  <script src="js/game.js?v=202611050510"></script>
+  <script src="js/intro.js?v=202611050510"></script>
+  <script src="js/app.js?v=202611050510"></script>
 </body>
 </html>

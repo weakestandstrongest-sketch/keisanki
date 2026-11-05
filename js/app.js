@@ -374,7 +374,7 @@
     } else launch();
     void rr;
   };
-  if (location.hash === '#holo') setTimeout(() => setHolo(true), 1400);
+  if (location.hash === '#holo') setTimeout(() => setHolo(true), MS.Intro.pref() === 'off' ? 600 : 3400);
 
   /* ---------- スマホ: 計算機を下から引き出すシート ---------- */
   (function sheet() {
@@ -514,12 +514,39 @@
   [[100, 0.3], [12, 0.5], [7, 0.68], [3.14, 0.42]].forEach(([v, fx], i) => {
     setTimeout(() => world.add(r0.width * fx, 60 + i * 10, v, { vy: 1 }), 250 + i * 260);
   });
-  try {
-    if (!localStorage.getItem('mathscape-seen') && location.hash !== '#holo') {
-      $('help').hidden = false;
-      localStorage.setItem('mathscape-seen', '1');
-    }
-  } catch (e) { /* storage 不可 */ }
+  /* ---------- 起動アニメーション ---------- */
+  const intro = new MS.Intro($('intro'));
+  function afterIntro() {
+    try {
+      if (!localStorage.getItem('mathscape-seen') && location.hash !== '#holo') {
+        $('help').hidden = false;
+        localStorage.setItem('mathscape-seen', '1');
+      }
+    } catch (e) { /* storage 不可 */ }
+  }
+  (function introPref() {
+    const box = $('introPref');
+    const opts = MS.Intro.kinds.concat([['random', 'おまかせ'], ['off', 'なし']]);
+    const render = () => {
+      const cur = MS.Intro.pref();
+      box.innerHTML = opts.map(([k, n]) => `<button type="button" data-k="${k}" class="${k === cur ? 'on' : ''}">${n}</button>`).join('');
+    };
+    render();
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      MS.Intro.setPref(b.dataset.k);
+      render();
+    });
+    $('introPreview').addEventListener('click', () => {
+      const k = MS.Intro.pref();
+      $('help').hidden = true;
+      intro.play(k === 'off' ? 'random' : k, () => { $('help').hidden = false; });
+    });
+  })();
+  const pref = MS.Intro.pref();
+  if (pref === 'off') afterIntro();
+  else intro.play(pref, afterIntro);
 
   MS.app = { world, calc, inspector, spawn, holo, setHolo, game };
 })(window.MS);

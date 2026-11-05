@@ -51,6 +51,9 @@ window.MS = window.MS || {};
     return { verts, faces };
   }
 
+  // 起動アニメーション用: 各部分の出現度 (0〜1)。ふだんは全部 1
+  const FULL = { slabs: [1, 1, 1], frame: 1, mesh: 1, fiber: 1, panels: 1, stars: 1, spin: 0 };
+
   const SLOTS = [
     [-0.62, -0.5], [0.02, -0.7], [0.62, -0.42], [-0.78, 0.1], [-0.12, -0.08],
     [0.5, 0.18], [-0.42, 0.55], [0.18, 0.58], [0.78, 0.66], [-0.02, 0.28], [0.32, -0.3], [-0.4, -0.25],
@@ -137,6 +140,7 @@ window.MS = window.MS || {};
     }
 
     setActive(on) {
+      if (on && this.active) { this.resize(); return; }
       this.active = on;
       this.c.hidden = !on;
       if (on) {
@@ -352,6 +356,7 @@ window.MS = window.MS || {};
 
     update(dt) {
       this.t += dt;
+      if (this.opts.beforeUpdate) this.opts.beforeUpdate(dt, this);
       this.idle = (this.idle || 0) + dt;
       if (this.idle > 4 && !this.tiltOn) this.userYaw += (Math.sin(this.t * 0.15) * 0.25 - this.userYaw) * 0.01;
       this.yawT = this.yaw0 + Math.max(-0.8, Math.min(0.8, this.userYaw + this.tiltYaw));
@@ -377,7 +382,8 @@ window.MS = window.MS || {};
       this.flights = this.flights.filter((f) => !f.done);
       for (const b of this.bursts) { b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.92; b.vy *= 0.92; b.life -= dt * 1.5; }
       this.bursts = this.bursts.filter((b) => b.life > 0);
-      this.cy = Math.cos(this.yaw); this.sy = Math.sin(this.yaw);
+      const spin = (this.fx || FULL).spin || 0;
+      this.cy = Math.cos(this.yaw + spin); this.sy = Math.sin(this.yaw + spin);
       this.cp = Math.cos(this.pitch); this.sp = Math.sin(this.pitch);
       for (const s of this.sparks) { s[1] += dt * (0.12 + s[3] * 0.2); if (s[1] > 2.9) s[1] = 0.6; }
       for (const c of this.crystals) if (c.pop) c.pop = Math.max(0, c.pop - dt * 2);
@@ -386,6 +392,7 @@ window.MS = window.MS || {};
     /* ---------- 描画 ---------- */
     draw() {
       const g = this.ctx;
+      const fx = this.fx || FULL;
       g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       g.clearRect(0, 0, this.w, this.h);
       const bgr = g.createRadialGradient(this.w / 2, this.h * 0.55, 10, this.w / 2, this.h * 0.55, Math.max(this.w, this.h) * 0.75);
@@ -395,7 +402,7 @@ window.MS = window.MS || {};
       g.fillStyle = bgr;
       g.fillRect(0, 0, this.w, this.h);
       for (const [sx, sy, r, a] of this.stars) {
-        g.fillStyle = `rgba(200,190,255,${0.15 + 0.5 * a * (0.6 + 0.4 * Math.sin(this.t * 1.3 + a * 20))})`;
+        g.fillStyle = `rgba(200,190,255,${(0.15 + 0.5 * a * (0.6 + 0.4 * Math.sin(this.t * 1.3 + a * 20))) * fx.stars})`;
         g.fillRect(sx * this.w, sy * this.h, r, r);
       }
 
@@ -411,25 +418,32 @@ window.MS = window.MS || {};
       }
       if (this.flatPanel && this.flat >= 0.01) for (const { p } of frontPanels) if (p === this.flatPanel && redraw) this.redrawPanel(p);
 
-      // 台座
-      this.drawSlab(this.base, 0, 0.13, { top: ['#1c1946', '#0d0b26'], side: [22, 20, 58], edge: 'rgba(170,190,255,0.55)', glow: 'rgba(120,200,255,0.5)' });
-      this.drawGuides();
-      this.drawSlab(this.l1, 0.13, 0.21, { top: ['#221b58', '#110d34'], side: [30, 24, 80], edge: 'rgba(160,140,255,0.45)' });
-      this.drawSlab(this.l2, 0.21, 0.27, { top: ['#2a1f6c', '#150f40'], side: [40, 30, 100], edge: 'rgba(180,160,255,0.5)' });
-      this.drawFrame();
-      this.drawPlate();
+      // 台座 (起動時は下からせり上がる)
+      const layer = (p, fn) => {
+        if (p <= 0.001) return;
+        g.save(); g.globalAlpha = Math.min(1, p); g.translate(0, (1 - Math.min(1, p)) * this.h * 0.22); fn(); g.restore();
+      };
+      layer(fx.slabs[0], () => {
+        this.drawSlab(this.base, 0, 0.13, { top: ['#1c1946', '#0d0b26'], side: [22, 20, 58], edge: 'rgba(170,190,255,0.55)', glow: 'rgba(120,200,255,0.5)' });
+        this.drawGuides();
+      });
+      layer(fx.slabs[1], () => this.drawSlab(this.l1, 0.13, 0.21, { top: ['#221b58', '#110d34'], side: [30, 24, 80], edge: 'rgba(160,140,255,0.45)' }));
+      layer(fx.slabs[2], () => this.drawSlab(this.l2, 0.21, 0.27, { top: ['#2a1f6c', '#150f40'], side: [40, 30, 100], edge: 'rgba(180,160,255,0.5)' }));
+      if (fx.frame > 0.001) { g.save(); g.globalAlpha = Math.min(1, fx.frame); this.drawFrame(); g.restore(); }
+      if (fx.mesh > 0.001) { g.save(); g.globalAlpha = Math.min(1, fx.mesh); this.drawPlate(); g.restore(); }
 
       // 結晶 (奥から)
       const cs = this.crystals.map((c) => ({ c, d: this.proj(c.x, this.meshY, c.z).d })).sort((a, b) => a.d - b.d);
       for (const { c } of cs) this.drawCrystal(c);
 
-      this.drawFibers();
-      this.drawSparks();
+      if (fx.fiber > 0.001) this.drawFibers();
+      if (fx.stars > 0.001) { g.save(); g.globalAlpha = Math.min(1, fx.stars); this.drawSparks(); g.restore(); }
       for (const { p } of frontPanels) if (p !== this.flatPanel || this.flat < 0.01) this.drawPanel(p, redraw);
       // 長押し中のパネルは、いちばん手前に平らに出す
       if (this.flatPanel && this.flat >= 0.01) this.drawPanel(this.flatPanel, false);
-      this.drawLabels(cs);
+      if (!this.hideLabels) this.drawLabels(cs);
       this.drawFlights();
+      if (this.opts.afterDraw) this.opts.afterDraw(g, this);
     }
 
     drawSlab(poly, y0, y1, st) {
@@ -544,7 +558,9 @@ window.MS = window.MS || {};
       g.globalCompositeOperation = 'lighter';
       const N = this.nodes.map(([x, z]) => this.proj(x, y + 0.002, z));
       g.lineWidth = 0.7;
-      for (const [i, j, d] of this.edges) {
+      const nEdges = Math.floor(this.edges.length * Math.min(1, (this.fx || FULL).mesh));
+      for (let ei = 0; ei < nEdges; ei++) {
+        const [i, j, d] = this.edges[ei];
         const a = this.nodes[i][2], hue = a < 0.5 ? 285 : 195;
         g.strokeStyle = `hsla(${hue},100%,78%,${d > 0.5 ? 0.18 : 0.32})`;
         g.beginPath(); g.moveTo(N[i].x, N[i].y); g.lineTo(N[j].x, N[j].y); g.stroke();
@@ -688,7 +704,7 @@ window.MS = window.MS || {};
           const w = Math.sin(u * f.freq * Math.PI + this.t * 1.2 + f.sw) * f.wav * u;
           const x = f.x + f.lean[0] * u * u + w;
           const z = f.z + f.lean[1] * u * u + w * 0.6;
-          pts.push(this.proj(x, y0 + u * f.h, z));
+          pts.push(this.proj(x, y0 + u * f.h * Math.min(1.3, (this.fx || FULL).fiber), z));
         }
         // 下は明るく、上へ行くほど消えていく
         g.lineWidth = 0.8;
@@ -803,11 +819,14 @@ window.MS = window.MS || {};
         this.dpr * (P1.x - P0.x) / W, this.dpr * (P1.y - P0.y) / W,
         this.dpr * (P3.x - P0.x) / H, this.dpr * (P3.y - P0.y) / H,
         this.dpr * P0.x, this.dpr * P0.y);
-      g.globalAlpha = 0.95;
+      const pa = Math.min(1, (this.fx || FULL).panels);
+      if (pa <= 0.001) { g.restore(); return; }
+      g.globalAlpha = 0.95 * pa;
       g.drawImage(p.cv, 0, 0);
       g.restore();
       g.save();
       g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = pa;
       g.strokeStyle = 'rgba(120,220,255,0.35)';
       g.lineWidth = 3;
       g.beginPath(); g.moveTo(P0.x, P0.y); g.lineTo(P1.x, P1.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.stroke();
@@ -946,4 +965,5 @@ window.MS = window.MS || {};
   }
 
   MS.Holo = Holo;
+  MS.Holo.DEFAULTS = DEFAULTS;
 })(window.MS);
