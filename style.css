@@ -470,6 +470,7 @@ canvas.dots { max-width: 100%; display: block; }
 body.dragging-num { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 
 /* ---------- 起動アニメーション ---------- */
+.no-intro .intro { display: none; }
 .intro { position: fixed; inset: 0; z-index: 60; background: #020205; transition: opacity .7s ease, transform .7s ease; cursor: pointer; }
 .intro.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
 .intro canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

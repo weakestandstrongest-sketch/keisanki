@@ -10,13 +10,26 @@
   <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    // 起動アニメーションを「なし」にしている人は、最初の黒い画面も出さない
+    try { if (localStorage.getItem('mathscape-intro') === 'off') document.documentElement.classList.add('no-intro'); } catch (e) {}
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Mathspace">
-  <link rel="stylesheet" href="style.css?v=202611050518">
+  <link rel="stylesheet" href="style.css?v=202611050521">
 </head>
 <body>
+  <div class="intro" id="intro" aria-hidden="true">
+    <canvas></canvas>
+    <div class="intro-logo">
+      <div class="il-name"><span>M</span><span>A</span><span>T</span><span>H</span><span>S</span><span>P</span><span>A</span><span>C</span><span>E</span></div>
+      <div class="il-tag">A new way to interact with numbers.</div>
+    </div>
+    <div class="intro-skip">タップでスキップ</div>
+  </div>
+
   <div class="bg" aria-hidden="true">
     <div class="stars"></div>
     <div class="platform"><div class="grid"></div><div class="rim"></div></div>
@@ -138,26 +151,17 @@
     </div>
   </div>
 
-  <div class="intro" id="intro" hidden aria-hidden="true">
-    <canvas></canvas>
-    <div class="intro-logo">
-      <div class="il-name"><span>M</span><span>A</span><span>T</span><span>H</span><span>S</span><span>P</span><span>A</span><span>C</span><span>E</span></div>
-      <div class="il-tag">A new way to interact with numbers.</div>
-    </div>
-    <div class="intro-skip">タップでスキップ</div>
-  </div>
-
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="ghost" id="ghost" hidden></div>
 
-  <script src="js/format.js?v=202611050518"></script>
-  <script src="js/numlab.js?v=202611050518"></script>
-  <script src="js/calc.js?v=202611050518"></script>
-  <script src="js/blobs.js?v=202611050518"></script>
-  <script src="js/inspector.js?v=202611050518"></script>
-  <script src="js/holo.js?v=202611050518"></script>
-  <script src="js/game.js?v=202611050518"></script>
-  <script src="js/intro.js?v=202611050518"></script>
-  <script src="js/app.js?v=202611050518"></script>
+  <script src="js/format.js?v=202611050521"></script>
+  <script src="js/numlab.js?v=202611050521"></script>
+  <script src="js/calc.js?v=202611050521"></script>
+  <script src="js/blobs.js?v=202611050521"></script>
+  <script src="js/inspector.js?v=202611050521"></script>
+  <script src="js/holo.js?v=202611050521"></script>
+  <script src="js/game.js?v=202611050521"></script>
+  <script src="js/intro.js?v=202611050521"></script>
+  <script src="js/app.js?v=202611050521"></script>
 </body>
 </html>

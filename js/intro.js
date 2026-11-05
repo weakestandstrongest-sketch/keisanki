@@ -149,7 +149,7 @@ window.MS = window.MS || {};
     play(kind, done) {
       if (kind === 'random') kind = ORDER[Math.floor(Math.random() * ORDER.length)];
       const K = KINDS[kind];
-      if (!K || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { if (done) done(); return; }
+      if (!K || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { this.root.hidden = true; if (done) done(); return; }
       this.done = done;
       this.kind = K;
       this.playing = true;

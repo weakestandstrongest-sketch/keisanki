@@ -545,7 +545,7 @@
     });
   })();
   const pref = MS.Intro.pref();
-  if (pref === 'off') afterIntro();
+  if (pref === 'off') { $('intro').hidden = true; afterIntro(); }
   else intro.play(pref, afterIntro);
 
   MS.app = { world, calc, inspector, spawn, holo, setHolo, game };
