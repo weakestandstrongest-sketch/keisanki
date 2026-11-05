@@ -1,4 +1,4 @@
-/* MATHSCAPE — ぷにぷに数字 (ソフトボディ物理) */
+/* Mathspace — ぷにぷに数字 (ソフトボディ物理) */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

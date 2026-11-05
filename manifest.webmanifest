@@ -1,6 +1,6 @@
 {
-  "name": "MATHSCAPE",
-  "short_name": "MATHSCAPE",
+  "name": "Mathspace",
+  "short_name": "Mathspace",
   "description": "数字・数式・条件・可能性を自由に操作できる、自分だけの計算空間。",
   "start_url": "./",
   "scope": "./",

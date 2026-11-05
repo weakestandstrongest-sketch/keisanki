@@ -1,4 +1,4 @@
-/* MATHSCAPE — 起動アニメーション (ホログラムの台座が組み上がる演出を 3 種類) */
+/* Mathspace — 起動アニメーション (ホログラムの台座が組み上がる演出を 3 種類) */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

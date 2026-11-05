@@ -1,4 +1,4 @@
-/* MATHSCAPE — 式パーサと計算機 UI */
+/* Mathspace — 式パーサと計算機 UI */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

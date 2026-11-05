@@ -1,4 +1,4 @@
-/* MATHSCAPE — 全体の結線 */
+/* Mathspace — 全体の結線 */
 (function (MS) {
   'use strict';
 

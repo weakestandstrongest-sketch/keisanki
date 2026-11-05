@@ -1,4 +1,4 @@
-# MATHSCAPE
+# Mathspace
 
 **A new way to interact with numbers.**
 

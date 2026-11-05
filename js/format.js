@@ -1,4 +1,4 @@
-/* MATHSCAPE — 数値フォーマット共通ヘルパー */
+/* Mathspace — 数値フォーマット共通ヘルパー */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

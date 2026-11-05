@@ -1,4 +1,4 @@
-/* MATHSCAPE — 2ⁿ DROP: 上から落ちてくる 2 の累乗を、同じ数どうしでくっつけていくゲーム */
+/* Mathspace — 2ⁿ DROP: 上から落ちてくる 2 の累乗を、同じ数どうしでくっつけていくゲーム */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

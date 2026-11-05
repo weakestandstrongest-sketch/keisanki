@@ -1,4 +1,4 @@
-/* MATHSCAPE — 数の性質を調べる純粋関数群 */
+/* Mathspace — 数の性質を調べる純粋関数群 */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

@@ -1,4 +1,4 @@
-/* MATHSCAPE — 数字インスペクタ (分解・変換・生成・シミュレーション・可視化) */
+/* Mathspace — 数字インスペクタ (分解・変換・生成・シミュレーション・可視化) */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';

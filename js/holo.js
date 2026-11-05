@@ -1,4 +1,4 @@
-/* MATHSCAPE — ホログラム・ビュー (アイソメトリックの計算台座) */
+/* Mathspace — ホログラム・ビュー (アイソメトリックの計算台座) */
 window.MS = window.MS || {};
 (function (MS) {
   'use strict';
