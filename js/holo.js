@@ -70,6 +70,10 @@ window.MS = window.MS || {};
       this.focus = 100;
       this.crystals = [];
       this.meshCache = new Map();
+      this.zoom = 1;
+      this.userYaw = 0; this.tiltYaw = 0; this.tiltPitch = 0; this.tiltOn = false;
+      this.cardIndex = 0; this.cardSlide = 0; this.cardDrag = 0; this.flat = 0; this.flatT = 0;
+      this.flights = []; this.bursts = [];
       this.build();
       this.panels = [
         { id: 'spectrum', c: [-1.62, 0.78, 0.5], w: [0, 0, -1], W: 1.3, H: 0.88, draw: (g, W, H) => this.drawSpectrum(g, W, H) },
@@ -78,7 +82,8 @@ window.MS = window.MS || {};
       ];
       for (const p of this.panels) {
         p.cv = document.createElement('canvas');
-        p.cv.width = 420; p.cv.height = Math.round(420 * p.H / p.W);
+        // 1.4 倍の解像度で描いて、スマホで大きく出しても読めるように
+        p.cv.width = 588; p.cv.height = Math.round(588 * p.H / p.W);
       }
       this.bindInput();
       window.addEventListener('resize', () => this.active && this.resize());
@@ -155,8 +160,10 @@ window.MS = window.MS || {};
       if (this.opts.onFocus) this.opts.onFocus(this.focus);
     }
 
-    setValues(values) {
-      const vals = values.filter(MS.isValid).slice(0, SLOTS.length);
+    /** 結晶の並びを更新。newV を渡すと、from (画面座標) から光が飛んできて生まれる */
+    setValues(values, newV, from) {
+      const prev = new Map(this.crystals.map((c) => [c.v, c]));
+      const vals = values.filter(MS.isValid).slice(-SLOTS.length);
       const list = vals.length >= 9 ? vals : vals.concat(DEFAULTS.filter((d) => !vals.includes(d))).slice(0, 9);
       this.crystals = list.map((v, i) => {
         const prime = MS.isPrime(v);
@@ -165,26 +172,64 @@ window.MS = window.MS || {};
         const h = kind === 'prism' ? size * (2.6 + (prime ? 0.8 : 0)) : size * 1.5;
         const key = kind + ':' + i;
         if (!this.meshCache.has(key)) this.meshCache.set(key, crystalMesh(kind, 11 + i * 31));
-        return { v, kind, x: SLOTS[i][0], z: SLOTS[i][1], r: size, h, mesh: this.meshCache.get(key), i };
+        const old = prev.get(v);
+        return { v, kind, x: SLOTS[i][0], z: SLOTS[i][1], r: size, h, mesh: this.meshCache.get(key), i, born: old ? old.born : 0, sp: old && old.sp };
       });
+      if (newV != null) {
+        const c = this.crystals.find((k) => k.v === newV);
+        if (c) {
+          const dur = 0.8;
+          c.born = this.t + dur;
+          this.flights.push({ c, t0: this.t, dur, from: from || { x: this.w / 2, y: this.h } });
+        }
+      }
     }
+
+    /** スマホの傾きで視点を回す (iPhone は許可が必要。ユーザー操作の中で呼ぶ) */
+    enableTilt() {
+      const DOE = window.DeviceOrientationEvent;
+      if (!DOE) return Promise.resolve(false);
+      const listen = () => {
+        if (this._tiltListening) return true;
+        this._tiltListening = true;
+        window.addEventListener('deviceorientation', (e) => {
+          if (e.gamma == null || !this.tiltWanted) return;
+          this.tiltOn = true;
+          if (this.b0 == null) this.b0 = e.beta;
+          this.b0 += (e.beta - this.b0) * 0.003; // ゆっくり基準を合わせ直す
+          this.tiltYaw = Math.max(-1, Math.min(1, e.gamma / 32)) * 0.6;
+          this.tiltPitch = Math.max(-1, Math.min(1, (e.beta - this.b0) / 35)) * 0.2;
+        });
+        return true;
+      };
+      this.tiltWanted = true;
+      if (typeof DOE.requestPermission === 'function') {
+        return DOE.requestPermission().then((r) => (r === 'granted' ? listen() : false)).catch(() => false);
+      }
+      return Promise.resolve(listen());
+    }
+    disableTilt() { this.tiltWanted = false; this.tiltOn = false; this.tiltYaw = 0; this.tiltPitch = 0; this.b0 = null; }
 
     resize() {
       const r = this.c.getBoundingClientRect();
-      this.dpr = Math.min(window.devicePixelRatio || 1, 2);
       this.w = Math.max(10, r.width); this.h = Math.max(10, r.height);
+      this.portrait = this.h > this.w * 1.05;
+      this.lite = this.w < 820 || window.matchMedia('(pointer: coarse)').matches;
+      this.dpr = Math.min(window.devicePixelRatio || 1, this.lite ? 1.5 : 2);
       this.c.width = Math.round(this.w * this.dpr);
       this.c.height = Math.round(this.h * this.dpr);
-      this.k = Math.min(this.w / 5.0, this.h / 3.85);
+      // 縦長: 台座を下半分に大きく、上は光の糸とカード
+      this.k = this.portrait ? Math.min(this.w / 3.6, this.h / 5.4) : Math.min(this.w / 5.0, this.h / 3.85);
       this.ox = this.w / 2;
-      this.oy = this.h * 0.63;
+      this.oy = this.h * (this.portrait ? 0.69 : 0.63);
+      this.kz = this.k * this.zoom;
     }
 
     /* ---------- 投影 ---------- */
     proj(x, y, z) {
       const xr = x * this.cy - z * this.sy;
       const zr = x * this.sy + z * this.cy;
-      return { x: this.ox + xr * this.k, y: this.oy - (y * this.cp - zr * this.sp) * this.k, d: zr * this.cp + y * this.sp };
+      return { x: this.ox + xr * this.kz, y: this.oy - (y * this.cp - zr * this.sp) * this.kz, d: zr * this.cp + y * this.sp };
     }
     viewNormal(nx, ny, nz) {
       const xr = nx * this.cy - nz * this.sy;
@@ -192,37 +237,109 @@ window.MS = window.MS || {};
       return [xr, ny * this.cp - zr * this.sp, zr * this.cp + ny * this.sp];
     }
 
-    /* ---------- 入力: ドラッグで回転、タップで結晶を選ぶ ---------- */
+    /* ---------- 入力 ----------
+       ドラッグ: 回転 / すばやく左右にはじく: 結晶を順番に選ぶ / タップ: 結晶を選ぶ
+       カードの上で左右スワイプ: パネル切替 / カードを長押し: 正面を向く / 2 本指: 拡大縮小 */
     bindInput() {
-      let st = null;
+      const pts = new Map();
+      let st = null, pinch = null;
+      const local = (e) => { const r = this.c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
       this.c.addEventListener('pointerdown', (e) => {
         this.c.setPointerCapture(e.pointerId);
-        st = { x: e.clientX, y: e.clientY, yaw: this.yawT, pitch: this.pitchT, moved: false, id: e.pointerId };
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
         this.idle = 0;
+        if (pts.size === 2) {
+          const [a, b] = [...pts.values()];
+          pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.zoom };
+          if (st) { clearTimeout(st.lpTimer); if (st.lp) this.flatT = 0; this.userYaw = st.userYaw; }
+          st = null;
+          return;
+        }
+        if (pts.size > 2) return;
+        const p = local(e);
+        st = { x: e.clientX, y: e.clientY, t: performance.now(), userYaw: this.userYaw, pitch: this.pitchT, moved: false, id: e.pointerId,
+          onCard: this.cardMode && this.inCard(p.x, p.y) };
+        if (st.onCard) {
+          st.lpTimer = setTimeout(() => { if (st && !st.moved) { st.lp = true; this.flatT = 1; } }, 420);
+        }
       });
       this.c.addEventListener('pointermove', (e) => {
+        if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch && pts.size >= 2) {
+          const [a, b] = [...pts.values()];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          this.zoom = Math.max(0.7, Math.min(1.9, pinch.z0 * d / pinch.d0));
+          return;
+        }
         if (!st || e.pointerId !== st.id) {
-          const hit = this.hitCrystal(e);
-          this.c.style.cursor = hit ? 'pointer' : 'grab';
-          this.hover = hit;
+          if (e.pointerType === 'mouse') {
+            const hit = this.hitCrystal(e);
+            this.c.style.cursor = hit ? 'pointer' : 'grab';
+            this.hover = hit;
+          }
           return;
         }
         const dx = e.clientX - st.x, dy = e.clientY - st.y;
-        if (Math.hypot(dx, dy) > 5) st.moved = true;
-        this.yawT = Math.max(this.yaw0 - 0.55, Math.min(this.yaw0 + 0.55, st.yaw + dx * 0.005));
+        if (!st.moved && Math.hypot(dx, dy) > 6) { st.moved = true; clearTimeout(st.lpTimer); }
+        if (!st.moved || st.lp) return;
+        if (st.onCard) { this.cardDrag = dx; return; }
+        this.userYaw = Math.max(-0.55, Math.min(0.55, st.userYaw + dx * 0.005));
         this.pitchT = Math.max(0.3, Math.min(0.95, st.pitch + dy * 0.004));
-        this.idle = 0;
       });
       const end = (e) => {
+        pts.delete(e.pointerId);
+        if (pinch) { if (pts.size < 2) pinch = null; return; }
         if (!st || e.pointerId !== st.id) return;
-        if (!st.moved) {
+        clearTimeout(st.lpTimer);
+        const dx = e.clientX - st.x, dy = e.clientY - st.y;
+        const quick = performance.now() - st.t < 300;
+        if (st.lp) {
+          this.flatT = 0;
+        } else if (st.onCard && st.moved) {
+          if (Math.abs(dx) > 40) this.switchCard(dx < 0 ? 1 : -1);
+          this.cardDrag = 0;
+        } else if (!st.moved) {
           const hit = this.hitCrystal(e);
           if (hit) { this.setFocus(hit.v); hit.pop = 1; }
+        } else if (quick && Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          // はじいた: 回転は戻して、となりの結晶へ
+          this.userYaw = st.userYaw;
+          this.selectNext(dx < 0 ? 1 : -1);
         }
         st = null;
       };
       this.c.addEventListener('pointerup', end);
-      this.c.addEventListener('pointercancel', () => { st = null; });
+      this.c.addEventListener('pointercancel', (e) => {
+        pts.delete(e.pointerId); pinch = null;
+        if (st) { clearTimeout(st.lpTimer); this.flatT = 0; this.cardDrag = 0; }
+        st = null;
+      });
+      this.c.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        this.zoom = Math.max(0.7, Math.min(1.9, this.zoom * Math.exp(-e.deltaY * 0.0015)));
+      }, { passive: false });
+    }
+
+    switchCard(dir) {
+      this.cardIndex = (this.cardIndex + dir + this.panels.length) % this.panels.length;
+      this.cardSlide = dir;
+      this.panelTick = 0;
+      if (this.opts.onCard) this.opts.onCard(this.cardIndex);
+    }
+
+    /** 画面の左から右の順で、となりの結晶を選ぶ */
+    selectNext(dir) {
+      const list = this.crystals.filter((c) => c.sp && this.t >= c.born).sort((a, b) => a.sp.x - b.sp.x);
+      if (!list.length) return;
+      let i = list.findIndex((c) => c.v === this.focus);
+      i = i < 0 ? 0 : (i + dir + list.length) % list.length;
+      this.setFocus(list[i].v);
+      list[i].pop = 1;
+    }
+
+    inCard(x, y) {
+      const r = this.cardRect;
+      return !!r && x >= r.x0 - 10 && x <= r.x1 + 10 && y >= r.y0 - 10 && y <= r.y1 + 10;
     }
 
     hitCrystal(e) {
@@ -232,7 +349,7 @@ window.MS = window.MS || {};
       for (const c of this.crystals) {
         if (!c.sp) continue;
         const d = Math.hypot(x - c.sp.x, y - c.sp.y);
-        if (d < Math.max(22, c.r * this.k * 1.3) && d < bd) { bd = d; best = c; }
+        if (d < Math.max(this.lite ? 30 : 22, c.r * this.kz * 1.4) && d < bd) { bd = d; best = c; }
       }
       return best;
     }
@@ -240,9 +357,30 @@ window.MS = window.MS || {};
     update(dt) {
       this.t += dt;
       this.idle = (this.idle || 0) + dt;
-      if (this.idle > 4) this.yawT += (this.yaw0 + Math.sin(this.t * 0.15) * 0.25 - this.yawT) * 0.01;
-      this.yaw += (this.yawT - this.yaw) * 0.12;
-      this.pitch += (this.pitchT - this.pitch) * 0.12;
+      if (this.idle > 4 && !this.tiltOn) this.userYaw += (Math.sin(this.t * 0.15) * 0.25 - this.userYaw) * 0.01;
+      this.yawT = this.yaw0 + Math.max(-0.8, Math.min(0.8, this.userYaw + this.tiltYaw));
+      const pT = Math.max(0.28, Math.min(1.0, this.pitchT + this.tiltPitch));
+      this.yaw += (this.yawT - this.yaw) * 0.1;
+      this.pitch += (pT - this.pitch) * 0.1;
+      this.kz = this.k * this.zoom;
+      this.cardMode = this.portrait;
+      this.flat += (this.flatT - this.flat) * 0.18;
+      this.cardSlide *= 0.82; if (Math.abs(this.cardSlide) < 0.002) this.cardSlide = 0;
+      // 飛んでいる光が着いたら、結晶が生まれてフォーカスが移る
+      for (const f of this.flights) {
+        if (!f.done && this.t >= f.t0 + f.dur) {
+          f.done = true;
+          f.c.pop = 1;
+          this.setFocus(f.c.v);
+          if (f.end) for (let i = 0; i < 28; i++) {
+            const a = Math.random() * TAU, sp = 40 + Math.random() * 160;
+            this.bursts.push({ x: f.end.x, y: f.end.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 1 });
+          }
+        }
+      }
+      this.flights = this.flights.filter((f) => !f.done);
+      for (const b of this.bursts) { b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.92; b.vy *= 0.92; b.life -= dt * 1.5; }
+      this.bursts = this.bursts.filter((b) => b.life > 0);
       this.cy = Math.cos(this.yaw); this.sy = Math.sin(this.yaw);
       this.cp = Math.cos(this.pitch); this.sp = Math.sin(this.pitch);
       for (const s of this.sparks) { s[1] += dt * (0.12 + s[3] * 0.2); if (s[1] > 2.9) s[1] = 0.6; }
@@ -271,7 +409,8 @@ window.MS = window.MS || {};
       this.panelTick = (this.panelTick || 0) - 1;
       const redraw = this.panelTick <= 0;
       if (redraw) this.panelTick = 4;
-      for (const { p } of backPanels) this.drawPanel(p, redraw);
+      if (!this.cardMode) for (const { p } of backPanels) this.drawPanel(p, redraw);
+      else this.cardRect = null;
 
       // 台座
       this.drawSlab(this.base, 0, 0.13, { top: ['#1c1946', '#0d0b26'], side: [22, 20, 58], edge: 'rgba(170,190,255,0.55)', glow: 'rgba(120,200,255,0.5)' });
@@ -287,8 +426,10 @@ window.MS = window.MS || {};
 
       this.drawFibers();
       this.drawSparks();
-      for (const { p } of frontPanels) this.drawPanel(p, redraw);
+      if (this.cardMode) this.drawCard(redraw);
+      else for (const { p } of frontPanels) this.drawPanel(p, redraw);
       this.drawLabels(cs);
+      this.drawFlights();
     }
 
     drawSlab(poly, y0, y1, st) {
@@ -391,7 +532,7 @@ window.MS = window.MS || {};
       const P = this.plate.map(([x, z]) => this.proj(x, y, z));
       g.save();
       const c = this.proj(0, y, 0);
-      const rg = g.createRadialGradient(c.x, c.y, 4, c.x, c.y, this.k * 1.3);
+      const rg = g.createRadialGradient(c.x, c.y, 4, c.x, c.y, this.kz * 1.3);
       rg.addColorStop(0, 'rgba(220,170,255,0.42)');
       rg.addColorStop(0.6, 'rgba(160,110,255,0.26)');
       rg.addColorStop(1, 'rgba(120,180,255,0.16)');
@@ -418,16 +559,21 @@ window.MS = window.MS || {};
 
     drawCrystal(c) {
       const g = this.ctx;
-      const bob = Math.sin(this.t * 1.1 + c.i * 1.7) * 0.012 + (c.pop || 0) * 0.05;
-      const spin = this.t * 0.25 + c.i;
+      if (this.t < c.born) { c.sp = null; return; }
+      const age = (this.t - c.born) / 0.5;
+      const grow = c.born && age < 1 ? 1 + 2.7 * Math.pow(age - 1, 3) + 1.7 * Math.pow(age - 1, 2) : 1; // ぽんと出る
+      const focus = c.v === this.focus;
+      c.lift = (c.lift || 0) + ((focus ? 0.1 : 0) - (c.lift || 0)) * 0.12;
+      const bob = Math.sin(this.t * 1.1 + c.i * 1.7) * 0.012 + (c.pop || 0) * 0.05 + c.lift;
+      const spin = this.t * (focus ? 0.6 : 0.25) + c.i;
       const cs = Math.cos(spin), sn = Math.sin(spin);
       const baseY = this.meshY + 0.01 + bob;
-      const focus = c.v === this.focus;
+      const R = c.r * grow, Hh = c.h * grow;
       // 足元の光
       const foot = this.proj(c.x, this.meshY, c.z);
       g.save();
       g.globalCompositeOperation = 'lighter';
-      const fr = c.r * this.k * (focus ? 2.4 : 1.6);
+      const fr = R * this.kz * (focus ? 2.4 : 1.6);
       const fg = g.createRadialGradient(foot.x, foot.y, 1, foot.x, foot.y, fr);
       fg.addColorStop(0, focus ? 'rgba(120,255,255,0.55)' : 'rgba(220,180,255,0.35)');
       fg.addColorStop(1, 'rgba(160,120,255,0)');
@@ -437,7 +583,7 @@ window.MS = window.MS || {};
 
       const W = c.mesh.verts.map(([x, y, z]) => {
         const rx = x * cs - z * sn, rz = x * sn + z * cs;
-        return [c.x + rx * c.r, baseY + y * c.h, c.z + rz * c.r];
+        return [c.x + rx * R, baseY + y * Hh, c.z + rz * R];
       });
       const S = W.map((v) => this.proj(...v));
       const faces = c.mesh.faces.map((f) => {
@@ -447,7 +593,7 @@ window.MS = window.MS || {};
         let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
         // 外向きにそろえる
         const mx = f.reduce((s, k) => s + W[k][0], 0) / f.length - c.x;
-        const my = f.reduce((s, k) => s + W[k][1], 0) / f.length - (baseY + c.h / 2);
+        const my = f.reduce((s, k) => s + W[k][1], 0) / f.length - (baseY + Hh / 2);
         const mz = f.reduce((s, k) => s + W[k][2], 0) / f.length - c.z;
         if (nx * mx + ny * my + nz * mz < 0) { nx = -nx; ny = -ny; nz = -nz; }
         const l = Math.hypot(nx, ny, nz) || 1;
@@ -472,17 +618,70 @@ window.MS = window.MS || {};
         g.lineWidth = front ? 0.9 : 0.6;
         g.stroke();
       }
-      const top = this.proj(c.x, baseY + c.h * 0.55, c.z);
+      const top = this.proj(c.x, baseY + Hh * 0.55, c.z);
       c.sp = top;
+      // 選んだ結晶から立ちのぼる光の柱
+      if (focus) {
+        const a = this.proj(c.x, baseY + Hh, c.z), b = this.proj(c.x, baseY + Hh + 1.3, c.z);
+        const wpx = Math.max(6, R * this.kz * 0.7);
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        const lg = g.createLinearGradient(0, a.y, 0, b.y);
+        lg.addColorStop(0, 'rgba(120,255,255,0.45)');
+        lg.addColorStop(1, 'rgba(120,200,255,0)');
+        g.fillStyle = lg;
+        g.beginPath(); g.moveTo(a.x - wpx / 2, a.y); g.lineTo(a.x + wpx / 2, a.y); g.lineTo(b.x + wpx * 0.15, b.y); g.lineTo(b.x - wpx * 0.15, b.y); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(200,255,255,0.5)';
+        g.fillRect(a.x - 0.6, b.y, 1.2, a.y - b.y);
+        g.restore();
+      }
+    }
+
+    drawFlights() {
+      const g = this.ctx;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (const f of this.flights) {
+        const c = f.c;
+        const end = this.proj(c.x, this.meshY + c.h * 0.5, c.z);
+        f.end = end;
+        const u = Math.min(1, (this.t - f.t0) / f.dur);
+        const ctrl = { x: (f.from.x + end.x) / 2 + (end.x - f.from.x) * 0.2, y: Math.min(f.from.y, end.y) - this.h * 0.25 };
+        const at = (t) => {
+          const a = (1 - t) * (1 - t), b = 2 * t * (1 - t), d = t * t;
+          return { x: a * f.from.x + b * ctrl.x + d * end.x, y: a * f.from.y + b * ctrl.y + d * end.y };
+        };
+        const e = 1 - Math.pow(1 - u, 2);
+        for (let i = 0; i < 14; i++) {
+          const t = Math.max(0, e - i * 0.025);
+          const p = at(t);
+          g.fillStyle = `rgba(${i ? '150,230,255' : '255,255,255'},${(1 - i / 14) * 0.8})`;
+          g.beginPath(); g.arc(p.x, p.y, (i ? 4 : 7) * (1 - i / 18), 0, TAU); g.fill();
+        }
+        const h = at(e);
+        const rg = g.createRadialGradient(h.x, h.y, 1, h.x, h.y, 26);
+        rg.addColorStop(0, 'rgba(140,255,255,0.6)'); rg.addColorStop(1, 'rgba(140,200,255,0)');
+        g.fillStyle = rg; g.beginPath(); g.arc(h.x, h.y, 26, 0, TAU); g.fill();
+        g.font = '700 13px "SF Mono", ui-monospace, Menlo, monospace';
+        g.textAlign = 'center';
+        g.fillStyle = 'rgba(255,255,255,0.95)';
+        g.fillText(MS.short(c.v), h.x, h.y - 14);
+      }
+      for (const b of this.bursts) {
+        g.fillStyle = `rgba(160,240,255,${b.life})`;
+        g.fillRect(b.x, b.y, 2, 2);
+      }
+      g.restore();
     }
 
     drawFibers() {
       const g = this.ctx;
       g.save();
       g.globalCompositeOperation = 'lighter';
-      const SEG = 16;
+      const SEG = this.lite ? 10 : 16;
       const y0 = this.meshY;
-      for (const f of this.fibers) {
+      const fibers = this.lite ? this.fibers.slice(0, 95) : this.fibers;
+      for (const f of fibers) {
         const pts = [];
         for (let i = 0; i <= SEG; i++) {
           const u = i / SEG;
@@ -515,11 +714,11 @@ window.MS = window.MS || {};
       }
       // 根元の光
       const c = this.proj(0, y0, 0);
-      const rg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, this.k * 0.8);
+      const rg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, this.kz * 0.8);
       rg.addColorStop(0, 'rgba(230,190,255,0.25)');
       rg.addColorStop(1, 'rgba(160,110,255,0)');
       g.fillStyle = rg;
-      g.beginPath(); g.ellipse(c.x, c.y, this.k * 0.8, this.k * 0.8 * this.sp, 0, 0, TAU); g.fill();
+      g.beginPath(); g.ellipse(c.x, c.y, this.kz * 0.8, this.kz * 0.8 * this.sp, 0, 0, TAU); g.fill();
       g.restore();
     }
 
@@ -527,7 +726,7 @@ window.MS = window.MS || {};
       const g = this.ctx;
       g.save();
       g.globalCompositeOperation = 'lighter';
-      for (const [x, y, z, a] of this.sparks) {
+      for (const [x, y, z, a] of (this.lite ? this.sparks.slice(0, 80) : this.sparks)) {
         const p = this.proj(x * 0.8, y, z * 0.8);
         const fade = Math.min(1, (2.9 - y) * 1.5) * (0.3 + 0.7 * a);
         g.fillStyle = a < 0.4 ? `rgba(130,240,255,${fade * 0.8})` : `rgba(220,190,255,${fade * 0.7})`;
@@ -539,20 +738,25 @@ window.MS = window.MS || {};
     drawLabels(cs) {
       const g = this.ctx;
       g.save();
-      g.font = '600 11px "SF Mono", ui-monospace, Menlo, monospace';
+      const fs = this.lite ? 12 : 11;
+      g.font = `600 ${fs}px "SF Mono", ui-monospace, Menlo, monospace`;
       g.textAlign = 'center';
       for (const { c } of cs) {
+        if (this.t < c.born) continue;
         const p = this.proj(c.x, this.meshY, c.z);
         const focus = c.v === this.focus;
         const hov = this.hover === c;
         const label = MS.short(c.v);
         if (focus || hov) {
-          const w = g.measureText(label).width + 14;
+          if (focus && this.lite) g.font = '700 15px "SF Mono", ui-monospace, Menlo, monospace';
+          const w = g.measureText(label).width + 16;
+          const bh = focus && this.lite ? 22 : 18;
           g.fillStyle = focus ? 'rgba(20,60,80,0.8)' : 'rgba(30,20,70,0.8)';
           g.strokeStyle = focus ? 'rgba(120,255,255,0.9)' : 'rgba(200,180,255,0.7)';
-          g.beginPath(); g.roundRect ? g.roundRect(p.x - w / 2, p.y + 6, w, 18, 9) : g.rect(p.x - w / 2, p.y + 6, w, 18); g.fill(); g.stroke();
+          g.beginPath(); g.roundRect ? g.roundRect(p.x - w / 2, p.y + 6, w, bh, bh / 2) : g.rect(p.x - w / 2, p.y + 6, w, bh); g.fill(); g.stroke();
           g.fillStyle = '#fff';
-          g.fillText(label, p.x, p.y + 19);
+          g.fillText(label, p.x, p.y + 6 + bh * 0.72);
+          g.font = `600 ${fs}px "SF Mono", ui-monospace, Menlo, monospace`;
         } else {
           g.fillStyle = 'rgba(225,215,255,0.6)';
           g.fillText(label, p.x, p.y + 17);
@@ -574,8 +778,10 @@ window.MS = window.MS || {};
       const P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
       if (redraw) {
         const pg = p.cv.getContext('2d');
+        pg.setTransform(1, 0, 0, 1, 0, 0);
         pg.clearRect(0, 0, p.cv.width, p.cv.height);
-        p.draw(pg, p.cv.width, p.cv.height);
+        pg.setTransform(1.4, 0, 0, 1.4, 0, 0);
+        p.draw(pg, 420, Math.round(420 * p.H / p.W));
       }
       const W = p.cv.width, H = p.cv.height;
       g.save();
@@ -592,6 +798,83 @@ window.MS = window.MS || {};
       g.lineWidth = 3;
       g.beginPath(); g.moveTo(P0.x, P0.y); g.lineTo(P1.x, P1.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.stroke();
       g.restore();
+    }
+
+    /** 縦長画面: 選んだ 1 枚のパネルを、台座の上に大きく浮かべる */
+    drawCard(redraw) {
+      const g = this.ctx;
+      const p = this.panels[this.cardIndex];
+      if (redraw) {
+        const pg = p.cv.getContext('2d');
+        pg.setTransform(1, 0, 0, 1, 0, 0);
+        pg.clearRect(0, 0, p.cv.width, p.cv.height);
+        pg.setTransform(1.4, 0, 0, 1.4, 0, 0);
+        p.draw(pg, 420, Math.round(420 * p.H / p.W));
+      }
+      const W = 2.4, H = W * p.H / p.W;
+      const s0 = Math.sin(this.yaw0), c0 = Math.cos(this.yaw0);
+      const float = Math.sin(this.t * 0.9) * 0.025;
+      // 画面の上の空いた部分に浮かべる
+      const room = (this.oy - 150) / (this.kz * this.cp); // 上端から 150px 下まで使える高さ
+      const cy = Math.max(1.9, Math.min(3.4, room - H / 2 - 0.15)) + float;
+      const cx = -s0 * 0.5, cz = -c0 * 0.5;
+      const wx = c0, wz = -s0; // 正面を向く向き (台座と一緒に回る)
+      let P0 = this.proj(cx - wx * W / 2, cy + H / 2, cz - wz * W / 2);
+      let P1 = this.proj(cx + wx * W / 2, cy + H / 2, cz + wz * W / 2);
+      let P3 = this.proj(cx - wx * W / 2, cy - H / 2, cz - wz * W / 2);
+      // 長押し中は、平らに正面へ
+      const f = this.flat;
+      if (f > 0.001) {
+        const fw = this.w - 28, fh = fw * p.H / p.W;
+        const mid = (P0.y + P3.y) / 2;
+        const fy = Math.max(12, Math.min(this.h - fh - 80, mid - fh / 2));
+        const F0 = { x: 14, y: fy }, F1 = { x: 14 + fw, y: fy }, F3 = { x: 14, y: fy + fh };
+        const L = (a, b) => ({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f });
+        P0 = L(P0, F0); P1 = L(P1, F1); P3 = L(P3, F3);
+      }
+      const off = this.cardSlide * this.w * 0.45 + this.cardDrag * 0.6;
+      P0 = { x: P0.x + off, y: P0.y }; P1 = { x: P1.x + off, y: P1.y }; P3 = { x: P3.x + off, y: P3.y };
+      const P2 = { x: P1.x + P3.x - P0.x, y: P1.y + P3.y - P0.y };
+      const alpha = Math.max(0.15, 1 - Math.abs(this.cardSlide) * 0.9 - Math.abs(this.cardDrag) / this.w);
+
+      // 台座からカードへのぼる光
+      const base = this.proj(0, this.meshY, 0);
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      const bg = g.createLinearGradient(0, base.y, 0, P3.y);
+      bg.addColorStop(0, 'rgba(140,200,255,0.14)'); bg.addColorStop(1, 'rgba(140,200,255,0.02)');
+      g.fillStyle = bg;
+      g.beginPath(); g.moveTo(base.x - this.kz * 0.25, base.y); g.lineTo(base.x + this.kz * 0.25, base.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.fill();
+      g.restore();
+
+      g.save();
+      const cw = p.cv.width, ch = p.cv.height;
+      g.setTransform(this.dpr * (P1.x - P0.x) / cw, this.dpr * (P1.y - P0.y) / cw, this.dpr * (P3.x - P0.x) / ch, this.dpr * (P3.y - P0.y) / ch, this.dpr * P0.x, this.dpr * P0.y);
+      g.globalAlpha = 0.96 * alpha;
+      g.drawImage(p.cv, 0, 0);
+      g.restore();
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = alpha;
+      g.strokeStyle = 'rgba(120,220,255,0.4)'; g.lineWidth = 4;
+      g.beginPath(); g.moveTo(P0.x, P0.y); g.lineTo(P1.x, P1.y); g.lineTo(P2.x, P2.y); g.lineTo(P3.x, P3.y); g.closePath(); g.stroke();
+      g.restore();
+
+      // 何枚目かの点と名前
+      const names = ['桁のスペクトル', '割った余り', '成長と性質'];
+      const ys = Math.max(P2.y, P3.y) + 16, xc = (P0.x + P1.x + P2.x + P3.x) / 4 - off;
+      g.save();
+      g.textAlign = 'center';
+      g.font = '600 11px "Hiragino Sans", "Noto Sans JP", sans-serif';
+      g.fillStyle = 'rgba(200,220,255,0.75)';
+      g.fillText(`‹  ${names[this.cardIndex]}  ›`, xc, ys + 14);
+      for (let i = 0; i < this.panels.length; i++) {
+        g.fillStyle = i === this.cardIndex ? 'rgba(120,255,255,0.95)' : 'rgba(160,170,220,0.4)';
+        g.beginPath(); g.arc(xc + (i - 1) * 12, ys, i === this.cardIndex ? 3.2 : 2.4, 0, TAU); g.fill();
+      }
+      g.restore();
+      const xs = [P0.x, P1.x, P2.x, P3.x], yv = [P0.y, P1.y, P2.y, P3.y];
+      this.cardRect = { x0: Math.min(...xs) - off, x1: Math.max(...xs) - off, y0: Math.min(...yv), y1: Math.max(...yv) };
     }
 
     panelBase(g, W, H, title) {

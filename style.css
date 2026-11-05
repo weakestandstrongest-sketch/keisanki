@@ -238,7 +238,31 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--c
 .holo-tip { flex: 1; min-width: 160px; font-size: 12px; color: var(--muted); padding-bottom: 6px; }
 .holo-acts { display: flex; gap: 8px; pointer-events: auto; }
 .holo-acts .btn { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.holo-close, .holo-tilt { display: none; }
 @media (max-width: 820px) { .holo-tip { display: none; } .holo-read b { font-size: 20px; } }
+
+/* スマホ: ホログラムを全画面で */
+@media (max-width: 820px) {
+  body.holo-full .top { display: none; }
+  body.holo-full .calc { --peek: 52px; }
+  body.holo-full .stage {
+    position: fixed; inset: 0; z-index: 4; border-radius: 0; border: 0;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px) - 18px);
+  }
+  body.holo-full .holo-close {
+    display: grid; place-items: center; position: absolute; z-index: 6;
+    top: calc(12px + env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px));
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid var(--line-hi); background: rgba(8, 7, 16, 0.7); font-size: 16px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  body.holo-full .holo-tilt { display: inline-block; }
+  body.holo-full .holo-tilt[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
+  body.holo-full #holoBack { display: none; }
+  body.holo-full .holo-hud { bottom: 30px; left: max(14px, env(safe-area-inset-left, 0px)); right: max(14px, env(safe-area-inset-right, 0px)); }
+  body.holo-full .holo-read { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); }
+  body.holo-full .holo-acts { margin-left: auto; }
+}
 
 /* 演算ピッカー */
 .op-picker {

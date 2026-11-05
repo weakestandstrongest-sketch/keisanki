@@ -51,10 +51,12 @@
     <section class="stage" id="stage" aria-label="計算空間">
       <canvas id="space"></canvas>
       <canvas id="holo" hidden></canvas>
+      <button type="button" class="holo-close" id="holoClose" aria-label="ホログラムを閉じる">✕</button>
       <div class="holo-hud" id="holoHud" hidden>
         <div class="holo-read"><span>FOCUS</span><b id="holoFocus">100</b></div>
         <div class="holo-tip">結晶をタップで選ぶ · ドラッグで回転 · 計算すると結果が映る</div>
         <div class="holo-acts">
+          <button type="button" class="btn holo-tilt" id="holoTilt" aria-pressed="false">📱 傾き</button>
           <button type="button" class="btn" id="holoInspect">🔍 調べる</button>
           <button type="button" class="btn glow" id="holoBack">◉ ぷに空間へ</button>
         </div>

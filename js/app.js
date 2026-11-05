@@ -310,33 +310,69 @@
   $('help').addEventListener('click', (e) => { if (e.target.id === 'help') $('help').hidden = true; });
 
   /* ---------- ホログラム・ビュー ---------- */
+  const mobileMQ = window.matchMedia('(max-width: 820px)');
   const holo = new MS.Holo($('holo'), {
     onFocus: (v) => { $('holoFocus').textContent = MS.fmt(v); },
   });
-  function setHolo(on) {
+  const liveValues = () => world.blobs.filter((b) => !b.dying).map((b) => b.value);
+  function setTiltUI() {
+    const b = $('holoTilt');
+    b.setAttribute('aria-pressed', String(!!holo.tiltWanted));
+    b.textContent = holo.tiltWanted ? '📱 傾き ON' : '📱 傾き';
+  }
+  function tryTilt() {
+    holo.enableTilt().then((ok) => {
+      if (!ok) { holo.disableTilt(); toast('傾きセンサーが使えません — ドラッグで回せます'); }
+      setTiltUI();
+    });
+  }
+  function setHolo(on, fromGesture) {
     closePicker();
-    holo.setValues(world.blobs.filter((b) => !b.dying).map((b) => b.value));
+    const full = on && mobileMQ.matches;
+    document.body.classList.toggle('holo-full', full);
+    if (MS.sheet) MS.sheet.setOpen(false);
+    holo.setValues(liveValues());
     if (on) holo.setFocus(holo.crystals.some((c) => c.v === calc.value) ? calc.value : (holo.crystals[0] ? holo.crystals[0].v : calc.value));
     holo.setActive(on);
     $('holoHud').hidden = !on;
     hint.hidden = on;
     stage.classList.toggle('holo-on', on);
     $('btnHolo').setAttribute('aria-pressed', String(on));
+    if (!on) { holo.disableTilt(); setTiltUI(); requestAnimationFrame(() => world.resize()); }
+    if (full && fromGesture) {
+      tryTilt(); // iPhone の許可ダイアログはボタン操作の中でしか出せない
+      toast('傾けて回す · はじいて結晶を選ぶ · カードを左右に');
+    }
     try { history.replaceState(null, '', on ? '#holo' : location.pathname + location.search); } catch (e) { /* noop */ }
   }
-  $('btnHolo').addEventListener('click', () => setHolo(!holo.active));
+  $('btnHolo').addEventListener('click', () => setHolo(!holo.active, true));
   $('holoBack').addEventListener('click', () => setHolo(false));
+  $('holoClose').addEventListener('click', () => setHolo(false));
   $('holoInspect').addEventListener('click', () => inspector.open(holo.focus, false));
-  // 計算するとホログラムに映す (新しい値は結晶にもなる)
+  $('holoTilt').addEventListener('click', () => {
+    if (holo.tiltWanted) { holo.disableTilt(); setTiltUI(); } else tryTilt();
+  });
+  window.addEventListener('resize', () => {
+    if (holo.active) document.body.classList.toggle('holo-full', mobileMQ.matches);
+  });
+  // 計算すると、答えが光になって台座へ飛び込み、新しい結晶が生まれる
   const prevEval = calc.onEvaluate;
   calc.onEvaluate = (v, expr) => {
     prevEval(v, expr);
-    if (holo.active) {
-      const vals = world.blobs.filter((b) => !b.dying).map((b) => b.value);
-      if (!vals.includes(v)) { spawn(v); vals.push(v); }
-      holo.setValues(vals);
-      holo.setFocus(v);
-    }
+    if (!holo.active) return;
+    const vals = liveValues();
+    if (!vals.includes(v)) { world.add(world.w / 2, 60, v, { vy: 1 }); vals.push(v); }
+    const hr = $('holo').getBoundingClientRect(), rr = $('result').getBoundingClientRect();
+    const launch = () => {
+      const r2 = $('result').getBoundingClientRect();
+      const from = { x: Math.max(20, Math.min(hr.width - 20, r2.right - 40 - hr.left)), y: Math.min(hr.height - 10, r2.top - hr.top + r2.height / 2) };
+      holo.setValues(vals, v, from);
+    };
+    if (MS.sheet && mobileMQ.matches && calcEl.classList.contains('open')) {
+      MS.sheet.setOpen(false);
+      setTimeout(launch, 260);
+    } else launch();
+    void rr;
   };
   if (location.hash === '#holo') setTimeout(() => setHolo(true), 1400);
 
@@ -350,7 +386,7 @@
       return r.top - (window.innerHeight - r.height);
     };
     const closedY = () => {
-      const peek = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--peek')) || 158;
+      const peek = parseFloat(getComputedStyle(calcEl).getPropertyValue('--peek')) || 158;
       return Math.max(0, calcEl.offsetHeight - peek);
     };
     const setOpen = (on) => {
@@ -395,6 +431,7 @@
     handle.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!calcEl.classList.contains('open')); }
     });
+    MS.sheet = { setOpen };
     // ぷに化したら空間が見えるよう閉じる
     $('btnPuni').addEventListener('click', () => { if (mq.matches) setOpen(false); });
   })();
