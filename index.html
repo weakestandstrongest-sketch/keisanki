@@ -20,6 +20,7 @@
       <span class="tag">A new way to interact with numbers.</span>
     </div>
     <div class="tools">
+      <button type="button" id="btnHolo" class="tbtn holo-btn" aria-pressed="false" title="ホログラム表示">◇ ホログラム</button>
       <button type="button" id="btnGravity" class="tbtn" aria-pressed="false" title="重力のオン/オフ">⟡ 無重力</button>
       <button type="button" id="btnSpawn" class="tbtn" title="ぷにを出す">＋ ぷに</button>
       <button type="button" id="btnClear" class="tbtn" title="ぷにを全部消す">全部消す</button>
@@ -46,6 +47,15 @@
 
     <section class="stage" id="stage" aria-label="計算空間">
       <canvas id="space"></canvas>
+      <canvas id="holo" hidden></canvas>
+      <div class="holo-hud" id="holoHud" hidden>
+        <div class="holo-read"><span>FOCUS</span><b id="holoFocus">100</b></div>
+        <div class="holo-tip">結晶をタップで選ぶ · ドラッグで回転 · 計算すると結果が映る</div>
+        <div class="holo-acts">
+          <button type="button" class="btn" id="holoInspect">🔍 調べる</button>
+          <button type="button" class="btn glow" id="holoBack">◉ ぷに空間へ</button>
+        </div>
+      </div>
       <div class="hint" id="hint">
         <b>ぷに</b>をタップ → 分解・変換・生成・シミュレーション・可視化<br>
         ぷにをドラッグして<b>別のぷにに重ねる</b> → その場で計算
@@ -79,6 +89,7 @@
   <script src="js/calc.js"></script>
   <script src="js/blobs.js"></script>
   <script src="js/inspector.js"></script>
+  <script src="js/holo.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

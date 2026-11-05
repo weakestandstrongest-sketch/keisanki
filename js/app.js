@@ -309,6 +309,37 @@
   $('btnHelpClose').addEventListener('click', () => { $('help').hidden = true; });
   $('help').addEventListener('click', (e) => { if (e.target.id === 'help') $('help').hidden = true; });
 
+  /* ---------- ホログラム・ビュー ---------- */
+  const holo = new MS.Holo($('holo'), {
+    onFocus: (v) => { $('holoFocus').textContent = MS.fmt(v); },
+  });
+  function setHolo(on) {
+    closePicker();
+    holo.setValues(world.blobs.filter((b) => !b.dying).map((b) => b.value));
+    if (on) holo.setFocus(holo.crystals.some((c) => c.v === calc.value) ? calc.value : (holo.crystals[0] ? holo.crystals[0].v : calc.value));
+    holo.setActive(on);
+    $('holoHud').hidden = !on;
+    hint.hidden = on;
+    stage.classList.toggle('holo-on', on);
+    $('btnHolo').setAttribute('aria-pressed', String(on));
+    try { history.replaceState(null, '', on ? '#holo' : location.pathname + location.search); } catch (e) { /* noop */ }
+  }
+  $('btnHolo').addEventListener('click', () => setHolo(!holo.active));
+  $('holoBack').addEventListener('click', () => setHolo(false));
+  $('holoInspect').addEventListener('click', () => inspector.open(holo.focus, false));
+  // 計算するとホログラムに映す (新しい値は結晶にもなる)
+  const prevEval = calc.onEvaluate;
+  calc.onEvaluate = (v, expr) => {
+    prevEval(v, expr);
+    if (holo.active) {
+      const vals = world.blobs.filter((b) => !b.dying).map((b) => b.value);
+      if (!vals.includes(v)) { spawn(v); vals.push(v); }
+      holo.setValues(vals);
+      holo.setFocus(v);
+    }
+  };
+  if (location.hash === '#holo') setTimeout(() => setHolo(true), 1400);
+
   /* ---------- キーボード ---------- */
   document.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('input, textarea, select')) return;
@@ -334,11 +365,11 @@
     setTimeout(() => world.add(r0.width * fx, 60 + i * 10, v, { vy: 1 }), 250 + i * 260);
   });
   try {
-    if (!localStorage.getItem('mathscape-seen')) {
+    if (!localStorage.getItem('mathscape-seen') && location.hash !== '#holo') {
       $('help').hidden = false;
       localStorage.setItem('mathscape-seen', '1');
     }
   } catch (e) { /* storage 不可 */ }
 
-  MS.app = { world, calc, inspector, spawn };
+  MS.app = { world, calc, inspector, spawn, holo, setHolo };
 })(window.MS);
